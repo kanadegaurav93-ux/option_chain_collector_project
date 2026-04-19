@@ -347,12 +347,12 @@ def collect_snapshot_sync(cfg: dict) -> dict:
     _log(f"✓ {symbol}: {len(rows)} rows. Spot=₹{rows[0]['underlying_value']}")
     return result
 
-def _bg_scheduler(interval_mins, market_open, market_close):
+def _bg_scheduler(interval_mins, market_open, market_close, skip_weekend):
     def job():
         if not st.session_state.get("collector_running"):
             return schedule.CancelJob
         now = datetime.now()
-        if now.weekday() >= 5:
+        if not skip_weekend and now.weekday() >= 5:
             _log("Weekend – skipping.", "DEBUG"); return
         open_dt  = now.replace(hour=market_open[0],  minute=market_open[1],  second=0)
         close_dt = now.replace(hour=market_close[0], minute=market_close[1], second=0)
@@ -591,6 +591,8 @@ with st.sidebar:
 
     with st.expander("⏱ Schedule", expanded=False):
         interval    = st.radio("Interval (min)", [3, 5], index=0, horizontal=True)
+        skip_weekend = st.checkbox("Skip weekend check", value=False,
+                                   help="Collect data even on Saturdays and Sundays")
         c1, c2      = st.columns(2)
         mkt_open_h  = c1.number_input("Open H",  value=9,  min_value=0, max_value=23)
         mkt_open_m  = c2.number_input("Open M",  value=15, min_value=0, max_value=59)
@@ -638,7 +640,7 @@ with st.sidebar:
             st.session_state["collector_running"] = True
             threading.Thread(
                 target=_bg_scheduler,
-                args=(interval, (mkt_open_h, mkt_open_m), (mkt_close_h, mkt_close_m)),
+                args=(interval, (mkt_open_h, mkt_open_m), (mkt_close_h, mkt_close_m), skip_weekend),
                 daemon=True,
             ).start()
             st.rerun()

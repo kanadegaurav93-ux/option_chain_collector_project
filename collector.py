@@ -11,6 +11,7 @@ Usage:
     python collector.py --once           # fetch once and exit
     python collector.py --mock           # use local OptionChainResponse.json
     python collector.py --debug          # print full HTTP details for diagnosis
+    python collector.py --skip-weekend-check  # collect even on weekends
 """
 
 import argparse
@@ -167,7 +168,7 @@ HEADERS_BASE = {
         "Chrome/124.0.0.0 Safari/537.36"
     ),
     "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Encoding": "gzip, deflate",
     "Connection":      "keep-alive",
 }
 
@@ -222,6 +223,24 @@ def get_session(debug: bool = False) -> requests.Session:
         _session_cache["ts"]      = now
     return _session_cache["session"]
 
+
+def _decode_response_body(resp: requests.Response) -> str:
+    content_encoding = resp.headers.get("Content-Encoding", "").lower()
+    if "br" in content_encoding:
+        try:
+            import brotli
+            decompressed = brotli.decompress(resp.content)
+            return decompressed.decode(resp.encoding or "utf-8", errors="replace")
+        except ImportError:
+            log.warning(
+                "  Received Brotli-compressed response but 'brotli' is not installed."
+            )
+            return resp.content.decode(resp.encoding or "utf-8", errors="replace")
+        except Exception as e:
+            log.warning(f"  Brotli decode failed: {e}")
+            return resp.content.decode(resp.encoding or "utf-8", errors="replace")
+    return resp.text
+
 # ── Fetch ─────────────────────────────────────────────────────────────────────
 def fetch_live(symbol: str, otype: str, expiry: str,
                debug: bool = False) -> Optional[dict]:
@@ -241,13 +260,17 @@ def fetch_live(symbol: str, otype: str, expiry: str,
             })
             resp = session.get(api_url, timeout=20)
 
+            content_encoding = resp.headers.get("Content-Encoding", "").lower()
+            body_text = _decode_response_body(resp)
+
             log.debug(
                 f"  Attempt {attempt}: HTTP {resp.status_code} | "
                 f"Content-Type: {resp.headers.get('Content-Type','?')} | "
-                f"Body length: {len(resp.text)}"
+                f"Content-Encoding: {content_encoding or 'none'} | "
+                f"Body length: {len(body_text)}"
             )
             if debug:
-                log.debug(f"  Raw response preview: {resp.text[:400]}")
+                log.debug(f"  Raw response preview: {body_text[:400]}")
 
             # ── HTTP error handling ──────────────────────────────────────────
             if resp.status_code in (401, 403):
@@ -259,11 +282,11 @@ def fetch_live(symbol: str, otype: str, expiry: str,
 
             if resp.status_code != 200:
                 log.warning(f"  Unexpected HTTP {resp.status_code} — "
-                            f"body: {resp.text[:200]}")
+                            f"body: {body_text[:200]}")
                 return None
 
             # ── Empty body ───────────────────────────────────────────────────
-            if not resp.text.strip():
+            if not body_text.strip():
                 log.warning(f"  Empty response body on attempt {attempt} — "
                             "refreshing session and retrying ...")
                 _session_cache["session"] = None
@@ -276,7 +299,7 @@ def fetch_live(symbol: str, otype: str, expiry: str,
                 log.warning(
                     f"  NSE returned HTML instead of JSON (attempt {attempt}).\n"
                     f"  This usually means NSE's bot-check blocked the request.\n"
-                    f"  Preview: {resp.text[:300]}"
+                    f"  Preview: {body_text[:300]}"
                 )
                 _session_cache["session"] = None
                 time.sleep(5)
@@ -284,11 +307,11 @@ def fetch_live(symbol: str, otype: str, expiry: str,
 
             # ── Parse JSON ───────────────────────────────────────────────────
             try:
-                data = resp.json()
+                data = json.loads(body_text)
             except Exception as parse_err:
                 log.warning(
                     f"  JSON parse failed (attempt {attempt}): {parse_err}\n"
-                    f"  Raw body: {resp.text[:400]}"
+                    f"  Raw body: {body_text[:400]}"
                 )
                 _session_cache["session"] = None
                 time.sleep(3)
@@ -426,9 +449,9 @@ def collect_snapshot(cfg: dict, mock: bool, debug: bool = False) -> dict:
 
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 def run_job(cfg: dict, mock: bool, debug: bool,
-            market_open: str, market_close: str):
+            market_open: str, market_close: str, skip_weekend: bool):
     now = datetime.now()
-    if now.weekday() >= 5:
+    if not skip_weekend and now.weekday() >= 5:
         log.debug(f"Weekend — skipping ({now.strftime('%A')})")
         return
     oh, om = map(int, market_open.split(":"))
@@ -446,7 +469,7 @@ def run_job(cfg: dict, mock: bool, debug: bool,
 
 def start_scheduler(symbols: list, interval_mins: int,
                     market_open: str, market_close: str,
-                    mock: bool, debug: bool):
+                    mock: bool, debug: bool, skip_weekend: bool):
     log.info("=" * 60)
     log.info(f"Scheduler started | interval={interval_mins}m | "
              f"market={market_open}–{market_close} | mock={mock}")
@@ -458,6 +481,7 @@ def start_scheduler(symbols: list, interval_mins: int,
         schedule.every(interval_mins).minutes.do(
             run_job, cfg=sym_cfg, mock=mock, debug=debug,
             market_open=market_open, market_close=market_close,
+            skip_weekend=skip_weekend,
         )
 
     running = {"flag": True}
@@ -469,7 +493,7 @@ def start_scheduler(symbols: list, interval_mins: int,
 
     log.info("Running initial fetch at startup ...")
     for sym_cfg in symbols:
-        run_job(sym_cfg, mock, debug, market_open, market_close)
+        run_job(sym_cfg, mock, debug, market_open, market_close, skip_weekend)
 
     while running["flag"]:
         schedule.run_pending()
@@ -503,6 +527,8 @@ Examples:
                    help="Use OptionChainResponse.json instead of live API")
     p.add_argument("--debug",    action="store_true",
                    help="Print full HTTP request/response details")
+    p.add_argument("--skip-weekend-check", action="store_true",
+                   help="Skip weekend check (collect data even on Sat/Sun)")
     return p.parse_args()
 
 
@@ -518,6 +544,7 @@ def main():
     interval     = args.interval or cfg.get("interval_mins", 5)
     market_open  = args.open     or cfg.get("market_open",  "09:15")
     market_close = args.close    or cfg.get("market_close", "15:30")
+    skip_weekend = args.skip_weekend_check
 
     if args.symbol and args.expiry:
         symbols = [{"symbol": args.symbol.upper(),
@@ -538,6 +565,7 @@ def main():
     log.info(f"  Market   : {market_open} – {market_close}")
     log.info(f"  Mock     : {mock}")
     log.info(f"  Debug    : {args.debug}")
+    log.info(f"  Skip Weekend: {skip_weekend}")
     log.info(f"  Data dir : {DATA_DIR.resolve()}")
     log.info("=" * 60)
 
@@ -560,7 +588,7 @@ def main():
                 )
         return
 
-    start_scheduler(symbols, interval, market_open, market_close, mock, args.debug)
+    start_scheduler(symbols, interval, market_open, market_close, mock, args.debug, skip_weekend)
 
 
 if __name__ == "__main__":
