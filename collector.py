@@ -3,27 +3,21 @@
 NSE Option Chain Collector — Standalone (No Streamlit / No Browser)
 Runs on Termux (Android) or any plain Python environment.
 
-Dependencies (all lightweight):
+Dependencies:
     pip install requests pandas schedule
 
 Usage:
-    python collector.py                        # uses config.json if present
-    python collector.py --symbol ANGELONE --expiry 28-Apr-2026
-    python collector.py --once                 # fetch once and exit
-    python collector.py --mock                 # use local OptionChainResponse.json
-
-Data is stored in:
-    ./option_chain_data/<SYMBOL>/<YYYY-MM-DD>/<SYMBOL>_<YYYY-MM-DD>.db  (SQLite)
-    ./option_chain_data/<SYMBOL>/<YYYY-MM-DD>/<SYMBOL>_<YYYY-MM-DD>.csv (CSV export)
-
-Log file:
-    ./option_chain_data/logs/collector_<YYYY-MM-DD>.log
+    python collector.py                  # uses config.json
+    python collector.py --once           # fetch once and exit
+    python collector.py --mock           # use local OptionChainResponse.json
+    python collector.py --debug          # print full HTTP details for diagnosis
 """
 
 import argparse
 import csv
 import json
 import logging
+import os
 import signal
 import sqlite3
 import sys
@@ -45,7 +39,7 @@ CFG_FILE  = BASE_DIR / "config.json"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── Config defaults (overridden by config.json or CLI args) ───────────────────
+# ── Defaults ──────────────────────────────────────────────────────────────────
 DEFAULT_CONFIG = {
     "symbols": [
         {"symbol": "ANGELONE", "type": "Equity", "expiry": "28-Apr-2026"}
@@ -56,32 +50,35 @@ DEFAULT_CONFIG = {
     "mock_mode":     False,
 }
 
-BASE_URL = "https://www.nseindia.com"
+BASE_URL    = "https://www.nseindia.com"
+SESSION_TTL = 300   # reuse session for 5 minutes
 
-# ── Logging ───────────────────────────────────────────────────────────────────
-def setup_logger() -> logging.Logger:
+# ── Logger ────────────────────────────────────────────────────────────────────
+def setup_logger(debug: bool = False) -> logging.Logger:
     log_file = LOG_DIR / f"collector_{date.today().isoformat()}.log"
+    level    = logging.DEBUG if debug else logging.INFO
     fmt      = "%(asctime)s [%(levelname)s] %(message)s"
-    logging.basicConfig(
-        level=logging.INFO,
-        format=fmt,
-        handlers=[
-            logging.FileHandler(log_file, encoding="utf-8"),
-            logging.StreamHandler(sys.stdout),
-        ],
-    )
-    return logging.getLogger("collector")
+    logger   = logging.getLogger("collector")
+    logger.setLevel(level)
+    # avoid duplicate handlers on re-runs
+    if not logger.handlers:
+        fh = logging.FileHandler(log_file, encoding="utf-8")
+        fh.setFormatter(logging.Formatter(fmt))
+        sh = logging.StreamHandler(sys.stdout)
+        sh.setFormatter(logging.Formatter(fmt))
+        logger.addHandler(fh)
+        logger.addHandler(sh)
+    return logger
 
 log = setup_logger()
 
-# ── Config loader ─────────────────────────────────────────────────────────────
+# ── Config ────────────────────────────────────────────────────────────────────
 def load_config() -> dict:
     cfg = DEFAULT_CONFIG.copy()
     if CFG_FILE.exists():
         try:
             with open(CFG_FILE, "r", encoding="utf-8") as f:
-                user_cfg = json.load(f)
-            cfg.update(user_cfg)
+                cfg.update(json.load(f))
             log.info(f"Config loaded from {CFG_FILE.name}")
         except Exception as e:
             log.warning(f"Could not read config.json: {e} — using defaults")
@@ -97,19 +94,19 @@ def get_db_path(symbol: str, trade_date: date) -> Path:
 def init_db(conn: sqlite3.Connection):
     conn.execute("""
         CREATE TABLE IF NOT EXISTS option_chain_snapshots (
-            id             INTEGER PRIMARY KEY AUTOINCREMENT,
-            snapshot_ts    TEXT    NOT NULL,
-            trade_date     TEXT    NOT NULL,
-            symbol         TEXT    NOT NULL,
-            expiry         TEXT    NOT NULL,
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_ts      TEXT    NOT NULL,
+            trade_date       TEXT    NOT NULL,
+            symbol           TEXT    NOT NULL,
+            expiry           TEXT    NOT NULL,
             underlying_value REAL,
-            strike_price   REAL    NOT NULL,
-            ce_oi          INTEGER,
-            ce_price       REAL,
-            ce_iv          REAL,
-            pe_oi          INTEGER,
-            pe_price       REAL,
-            pe_iv          REAL
+            strike_price     REAL    NOT NULL,
+            ce_oi            INTEGER,
+            ce_price         REAL,
+            ce_iv            REAL,
+            pe_oi            INTEGER,
+            pe_price         REAL,
+            pe_iv            REAL
         )
     """)
     conn.execute("""
@@ -132,21 +129,18 @@ def insert_rows(conn: sqlite3.Connection, rows: list):
 
 
 def export_csv(symbol: str, trade_date: date):
-    """Append today's latest snapshot to a daily CSV file."""
     db_path  = get_db_path(symbol, trade_date)
     csv_path = db_path.parent / f"{symbol}_{trade_date.isoformat()}.csv"
     if not db_path.exists():
         return
     try:
-        conn = sqlite3.connect(db_path)
-        cur  = conn.execute(
-            "SELECT MAX(snapshot_ts) FROM option_chain_snapshots"
-        )
+        conn      = sqlite3.connect(db_path)
+        cur       = conn.execute("SELECT MAX(snapshot_ts) FROM option_chain_snapshots")
         latest_ts = cur.fetchone()[0]
         if not latest_ts:
             conn.close()
             return
-        cur = conn.execute(
+        cur     = conn.execute(
             "SELECT * FROM option_chain_snapshots WHERE snapshot_ts=? ORDER BY strike_price",
             (latest_ts,)
         )
@@ -165,88 +159,167 @@ def export_csv(symbol: str, trade_date: date):
 
 # ── NSE Session ───────────────────────────────────────────────────────────────
 _session_cache: dict = {"session": None, "ts": 0.0}
-SESSION_TTL = 300  # seconds — reuse session for 5 minutes
+
+HEADERS_BASE = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection":      "keep-alive",
+}
+
+WARMUP_URLS = [
+    (BASE_URL,                          "text/html,*/*;q=0.8"),
+    (f"{BASE_URL}/option-chain",        "text/html,*/*;q=0.8"),
+    (f"{BASE_URL}/market-data-pre-open-market?series=[%22EQ%22]&",
+                                         "application/json,*/*"),
+]
 
 
-def _make_session() -> requests.Session:
-    """Create a warmed-up requests.Session with NSE-compatible headers."""
+def _make_session(debug: bool = False) -> requests.Session:
+    """Create a warmed-up requests.Session that passes NSE cookie checks."""
     session = requests.Session()
-    session.headers.update({
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Referer":         "https://www.nseindia.com/",
-        "Connection":      "keep-alive",
-    })
-    try:
-        log.info("Warming up NSE session (homepage) ...")
-        session.get(BASE_URL, timeout=15)
-        time.sleep(1.5)
-        log.info("Warming up NSE session (option-chain page) ...")
-        session.get(f"{BASE_URL}/option-chain", timeout=15)
-        time.sleep(1.0)
-        log.info("NSE session ready ✓")
-    except Exception as e:
-        log.warning(f"Warm-up failed (will still try API): {e}")
+    session.headers.update(HEADERS_BASE)
+
+    for url, accept in WARMUP_URLS:
+        try:
+            session.headers.update({
+                "Accept":  accept,
+                "Referer": BASE_URL + "/",
+            })
+            r = session.get(url, timeout=15)
+            log.debug(f"Warm-up {url[:60]} → HTTP {r.status_code} | "
+                      f"cookies: {list(r.cookies.keys())}")
+            if debug:
+                log.debug(f"  Body preview: {r.text[:200]}")
+            time.sleep(1.5)
+        except Exception as e:
+            log.warning(f"Warm-up hit failed ({url[:50]}): {e}")
+
+    cookies_got = [c.name for c in session.cookies]
+    if cookies_got:
+        log.info(f"NSE session ready ✓  cookies: {cookies_got}")
+    else:
+        log.warning(
+            "NSE session created but NO cookies received.\n"
+            "  ► Check your internet connection and that nseindia.com is reachable.\n"
+            "  ► If on mobile data, try toggling Airplane mode once."
+        )
     return session
 
 
-def get_session() -> requests.Session:
-    """Return cached session; recreate if expired."""
+def get_session(debug: bool = False) -> requests.Session:
     now = time.time()
     if (
         _session_cache["session"] is None
         or (now - _session_cache["ts"]) > SESSION_TTL
     ):
-        _session_cache["session"] = _make_session()
+        log.info("Creating new NSE session ...")
+        _session_cache["session"] = _make_session(debug)
         _session_cache["ts"]      = now
     return _session_cache["session"]
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
-def fetch_live(symbol: str, otype: str, expiry: str) -> Optional[dict]:
-    """Fetch option chain from NSE API — no browser required."""
+def fetch_live(symbol: str, otype: str, expiry: str,
+               debug: bool = False) -> Optional[dict]:
     api_url = (
         f"{BASE_URL}/api/option-chain-v3"
         f"?type={otype}&symbol={symbol}&expiry={expiry}"
     )
-    log.info(f"[LIVE] {api_url}")
-    for attempt in range(1, 3):
+    log.info(f"[LIVE] Fetching → {api_url}")
+
+    for attempt in range(1, 4):   # up to 3 attempts
         try:
-            session = get_session()
+            session = get_session(debug)
             session.headers.update({
-                "Accept":  "application/json, text/plain, */*",
-                "Referer": f"{BASE_URL}/option-chain",
+                "Accept":           "application/json, text/plain, */*",
+                "Referer":          f"{BASE_URL}/option-chain",
+                "X-Requested-With": "XMLHttpRequest",
             })
             resp = session.get(api_url, timeout=20)
-            if resp.status_code == 200:
+
+            log.debug(
+                f"  Attempt {attempt}: HTTP {resp.status_code} | "
+                f"Content-Type: {resp.headers.get('Content-Type','?')} | "
+                f"Body length: {len(resp.text)}"
+            )
+            if debug:
+                log.debug(f"  Raw response preview: {resp.text[:400]}")
+
+            # ── HTTP error handling ──────────────────────────────────────────
+            if resp.status_code in (401, 403):
+                log.warning(f"  Session rejected (HTTP {resp.status_code}) "
+                            f"— forcing session refresh (attempt {attempt})")
+                _session_cache["session"] = None
+                time.sleep(2)
+                continue
+
+            if resp.status_code != 200:
+                log.warning(f"  Unexpected HTTP {resp.status_code} — "
+                            f"body: {resp.text[:200]}")
+                return None
+
+            # ── Empty body ───────────────────────────────────────────────────
+            if not resp.text.strip():
+                log.warning(f"  Empty response body on attempt {attempt} — "
+                            "refreshing session and retrying ...")
+                _session_cache["session"] = None
+                time.sleep(3)
+                continue
+
+            # ── Non-JSON body (HTML / Cloudflare challenge page) ─────────────
+            content_type = resp.headers.get("Content-Type", "")
+            if "html" in content_type.lower():
+                log.warning(
+                    f"  NSE returned HTML instead of JSON (attempt {attempt}).\n"
+                    f"  This usually means NSE's bot-check blocked the request.\n"
+                    f"  Preview: {resp.text[:300]}"
+                )
+                _session_cache["session"] = None
+                time.sleep(5)
+                continue
+
+            # ── Parse JSON ───────────────────────────────────────────────────
+            try:
                 data = resp.json()
-                if data:
-                    log.info(f"  ✓ JSON received for {symbol} (attempt {attempt})")
-                    return data
-                log.warning(f"  Empty response for {symbol}")
+            except Exception as parse_err:
+                log.warning(
+                    f"  JSON parse failed (attempt {attempt}): {parse_err}\n"
+                    f"  Raw body: {resp.text[:400]}"
+                )
+                _session_cache["session"] = None
+                time.sleep(3)
+                continue
+
+            if not data:
+                log.warning(f"  JSON parsed but empty dict/list for {symbol}")
                 return None
-            elif resp.status_code in (401, 403):
-                log.warning(f"  HTTP {resp.status_code} — refreshing session ...")
-                _session_cache["session"] = None  # force recreate
-            else:
-                log.warning(f"  HTTP {resp.status_code} for {symbol}")
-                return None
+
+            log.info(f"  ✓ Data received for {symbol} on attempt {attempt}")
+            return data
+
+        except requests.exceptions.ConnectionError as e:
+            log.error(f"  Network error (attempt {attempt}): {e}\n"
+                      "  ► Check internet connection.")
+            time.sleep(5)
         except requests.exceptions.Timeout:
-            log.warning(f"  Timeout on attempt {attempt} for {symbol}")
+            log.warning(f"  Request timed out (attempt {attempt})")
+            time.sleep(3)
         except Exception as e:
-            log.error(f"  Fetch error [{symbol}]: {e}")
+            log.error(f"  Unexpected error (attempt {attempt}): {e}")
             return None
-    log.error(f"Failed to fetch {symbol} after 2 attempts.")
+
+    log.error(
+        f"Failed to fetch {symbol} after 3 attempts.\n"
+        "  ► Run: python collector.py --debug --once  for full diagnostics."
+    )
     return None
 
 
 def fetch_mock(symbol: str) -> Optional[dict]:
-    """Load data from local OptionChainResponse.json (offline testing)."""
     if not MOCK_FILE.exists():
         log.error(f"Mock file not found: {MOCK_FILE.resolve()}")
         return None
@@ -260,17 +333,23 @@ def fetch_mock(symbol: str) -> Optional[dict]:
         return None
 
 
-def fetch_option_chain(symbol: str, otype: str, expiry: str, mock: bool) -> Optional[dict]:
-    return fetch_mock(symbol) if mock else fetch_live(symbol, otype, expiry)
+def fetch_option_chain(symbol: str, otype: str, expiry: str,
+                       mock: bool, debug: bool = False) -> Optional[dict]:
+    return fetch_mock(symbol) if mock else fetch_live(symbol, otype, expiry, debug)
 
 # ── Parse ─────────────────────────────────────────────────────────────────────
 def parse_response(raw: dict, symbol: str, expiry: str,
                    snapshot_ts: str, trade_date_str: str) -> list:
     rows = []
     try:
-        data_list = raw.get("filtered", {}).get("data", raw.get("data", []))
+        data_list = (
+            raw.get("filtered", {}).get("data")
+            or raw.get("records", {}).get("data")
+            or raw.get("data")
+            or []
+        )
         if not data_list:
-            log.warning(f"No data rows found. Keys: {list(raw.keys())}")
+            log.warning(f"No data rows in response. Top-level keys: {list(raw.keys())}")
             return rows
 
         first_ce = next((d["CE"] for d in data_list if "CE" in d), {})
@@ -279,6 +358,7 @@ def parse_response(raw: dict, symbol: str, expiry: str,
             first_ce.get("underlyingValue")
             or first_pe.get("underlyingValue")
             or raw.get("records", {}).get("underlyingValue", 0)
+            or 0
         )
 
         for item in data_list:
@@ -301,26 +381,28 @@ def parse_response(raw: dict, symbol: str, expiry: str,
                 "pe_price":         pe.get("lastPrice"),
                 "pe_iv":            pe.get("impliedVolatility"),
             })
-        log.info(f"  Parsed {len(rows)} strikes for {symbol} | Spot: {spot}")
+        log.info(f"  Parsed {len(rows)} strikes | Spot: ₹{spot:,.2f}")
     except Exception as e:
         log.error(f"Parse error: {e}")
     return rows
 
 # ── Collect one snapshot ───────────────────────────────────────────────────────
-def collect_snapshot(cfg: dict, mock: bool) -> dict:
-    symbol = cfg["symbol"]
-    now    = datetime.now()
-    snap_ts   = now.isoformat(timespec="seconds")
+def collect_snapshot(cfg: dict, mock: bool, debug: bool = False) -> dict:
+    symbol     = cfg["symbol"]
+    now        = datetime.now()
+    snap_ts    = now.isoformat(timespec="seconds")
     trade_date = now.date()
+    result     = {"symbol": symbol, "success": False, "rows": 0,
+                  "spot": None, "error": None}
 
-    result = {"symbol": symbol, "success": False, "rows": 0, "spot": None, "error": None}
-
-    raw = fetch_option_chain(symbol, cfg.get("type", "Equity"), cfg["expiry"], mock)
+    raw = fetch_option_chain(symbol, cfg.get("type", "Equity"),
+                             cfg["expiry"], mock, debug)
     if not raw:
         result["error"] = "No data returned from API"
         return result
 
-    rows = parse_response(raw, symbol, cfg["expiry"], snap_ts, trade_date.isoformat())
+    rows = parse_response(raw, symbol, cfg["expiry"], snap_ts,
+                          trade_date.isoformat())
     if not rows:
         result["error"] = "0 rows parsed from response"
         return result
@@ -336,47 +418,48 @@ def collect_snapshot(cfg: dict, mock: bool) -> dict:
     except Exception as e:
         log.warning(f"CSV export skipped: {e}")
 
-    result.update(success=True, rows=len(rows), spot=rows[0]["underlying_value"])
-    log.info(f"  ✅ {symbol}: {len(rows)} strikes saved | Spot ₹{rows[0]['underlying_value']:,.2f}")
+    result.update(success=True, rows=len(rows),
+                  spot=rows[0]["underlying_value"])
+    log.info(f"✅ {symbol}: {len(rows)} strikes saved | "
+             f"Spot ₹{rows[0]['underlying_value']:,.2f} | DB: {db_path.name}")
     return result
 
-# ── Scheduler job ──────────────────────────────────────────────────────────────
-def run_job(cfg: dict, mock: bool, market_open: str, market_close: str):
+# ── Scheduler ─────────────────────────────────────────────────────────────────
+def run_job(cfg: dict, mock: bool, debug: bool,
+            market_open: str, market_close: str):
     now = datetime.now()
-
-    # Skip weekends
     if now.weekday() >= 5:
         log.debug(f"Weekend — skipping ({now.strftime('%A')})")
         return
-
-    # Skip outside market hours
-    open_h,  open_m  = map(int, market_open.split(":"))
-    close_h, close_m = map(int, market_close.split(":"))
-    open_dt  = now.replace(hour=open_h,  minute=open_m,  second=0, microsecond=0)
-    close_dt = now.replace(hour=close_h, minute=close_m, second=0, microsecond=0)
+    oh, om = map(int, market_open.split(":"))
+    ch, cm = map(int, market_close.split(":"))
+    open_dt  = now.replace(hour=oh, minute=om,  second=0, microsecond=0)
+    close_dt = now.replace(hour=ch, minute=cm, second=0, microsecond=0)
     if not (open_dt <= now <= close_dt):
         log.debug(f"Outside market hours ({now.strftime('%H:%M')}) — skipping")
         return
-
-    log.info(f"=== Collecting snapshot @ {now.strftime('%H:%M:%S')} ===")
-    result = collect_snapshot(cfg, mock)
+    log.info(f"=== Snapshot @ {now.strftime('%H:%M:%S')} ===")
+    result = collect_snapshot(cfg, mock, debug)
     if not result["success"]:
-        log.warning(f"  ❌ {result['symbol']}: {result['error']}")
+        log.warning(f"❌ {result['symbol']}: {result['error']}")
 
 
 def start_scheduler(symbols: list, interval_mins: int,
-                    market_open: str, market_close: str, mock: bool):
+                    market_open: str, market_close: str,
+                    mock: bool, debug: bool):
+    log.info("=" * 60)
     log.info(f"Scheduler started | interval={interval_mins}m | "
              f"market={market_open}–{market_close} | mock={mock}")
-    log.info(f"Symbols: {[s['symbol'] for s in symbols]}")
+    log.info(f"Symbols : {[s['symbol'] for s in symbols]}")
+    log.info(f"Data dir: {DATA_DIR.resolve()}")
+    log.info("=" * 60)
 
     for sym_cfg in symbols:
         schedule.every(interval_mins).minutes.do(
-            run_job, cfg=sym_cfg, mock=mock,
-            market_open=market_open, market_close=market_close
+            run_job, cfg=sym_cfg, mock=mock, debug=debug,
+            market_open=market_open, market_close=market_close,
         )
 
-    # Graceful shutdown on Ctrl+C / SIGTERM
     running = {"flag": True}
     def _stop(sig, frame):
         log.info("Shutdown signal received — stopping ...")
@@ -384,42 +467,58 @@ def start_scheduler(symbols: list, interval_mins: int,
     signal.signal(signal.SIGINT,  _stop)
     signal.signal(signal.SIGTERM, _stop)
 
-    # Run once immediately at startup
-    log.info("Running initial fetch ...")
+    log.info("Running initial fetch at startup ...")
     for sym_cfg in symbols:
-        run_job(sym_cfg, mock, market_open, market_close)
+        run_job(sym_cfg, mock, debug, market_open, market_close)
 
     while running["flag"]:
         schedule.run_pending()
         time.sleep(10)
 
-    log.info("Collector stopped.")
+    log.info("Collector stopped cleanly.")
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 def parse_args():
-    p = argparse.ArgumentParser(description="NSE Option Chain Standalone Collector")
-    p.add_argument("--symbol",   help="Symbol name e.g. ANGELONE")
-    p.add_argument("--expiry",   help="Expiry date e.g. 28-Apr-2026")
+    p = argparse.ArgumentParser(
+        description="NSE Option Chain Standalone Collector",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""
+Examples:
+  python collector.py                        # auto-collect using config.json
+  python collector.py --once                 # fetch once and exit
+  python collector.py --debug --once         # fetch once with full HTTP logs
+  python collector.py --mock --once          # test with local JSON file
+  python collector.py --symbol RELIANCE --expiry 28-Apr-2026 --once
+        """,
+    )
+    p.add_argument("--symbol",   help="Symbol e.g. ANGELONE")
+    p.add_argument("--expiry",   help="Expiry e.g. 28-Apr-2026")
     p.add_argument("--type",     default="Equity", help="Equity or Index")
-    p.add_argument("--interval", type=int, help="Fetch interval in minutes (3 or 5)")
-    p.add_argument("--open",     default=None, help="Market open time HH:MM")
-    p.add_argument("--close",    default=None, help="Market close time HH:MM")
-    p.add_argument("--once",     action="store_true", help="Fetch once and exit")
-    p.add_argument("--mock",     action="store_true", help="Use local mock JSON file")
+    p.add_argument("--interval", type=int, help="Interval minutes (3 or 5)")
+    p.add_argument("--open",     help="Market open  HH:MM  (default 09:15)")
+    p.add_argument("--close",    help="Market close HH:MM  (default 15:30)")
+    p.add_argument("--once",     action="store_true",
+                   help="Fetch once and exit (ignores market hours)")
+    p.add_argument("--mock",     action="store_true",
+                   help="Use OptionChainResponse.json instead of live API")
+    p.add_argument("--debug",    action="store_true",
+                   help="Print full HTTP request/response details")
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    cfg  = load_config()
 
-    # CLI args override config.json
-    mock         = args.mock or cfg.get("mock_mode", False)
+    # Re-init logger with debug level if requested
+    global log
+    log = setup_logger(debug=args.debug)
+
+    cfg          = load_config()
+    mock         = args.mock     or cfg.get("mock_mode",    False)
     interval     = args.interval or cfg.get("interval_mins", 5)
-    market_open  = args.open  or cfg.get("market_open",  "09:15")
-    market_close = args.close or cfg.get("market_close", "15:30")
+    market_open  = args.open     or cfg.get("market_open",  "09:15")
+    market_close = args.close    or cfg.get("market_close", "15:30")
 
-    # Build symbols list — CLI takes priority
     if args.symbol and args.expiry:
         symbols = [{"symbol": args.symbol.upper(),
                     "type":   args.type,
@@ -428,27 +527,40 @@ def main():
         symbols = cfg.get("symbols", DEFAULT_CONFIG["symbols"])
 
     if not symbols:
-        log.error("No symbols configured. Use --symbol / --expiry or edit config.json")
+        log.error("No symbols configured. Use --symbol/--expiry or edit config.json")
         sys.exit(1)
 
     log.info("=" * 60)
     log.info("NSE Option Chain Collector — Standalone")
+    log.info(f"  Python   : {sys.version.split()[0]}")
     log.info(f"  Symbols  : {[s['symbol'] for s in symbols]}")
     log.info(f"  Interval : {interval} min")
     log.info(f"  Market   : {market_open} – {market_close}")
     log.info(f"  Mock     : {mock}")
+    log.info(f"  Debug    : {args.debug}")
     log.info(f"  Data dir : {DATA_DIR.resolve()}")
     log.info("=" * 60)
 
     if args.once:
-        # Single fetch and exit
-        log.info("--once flag: fetching once and exiting")
+        log.info("--once mode: fetching once (market hours ignored)")
         for sym_cfg in symbols:
-            collect_snapshot(sym_cfg, mock)
-        log.info("Done.")
+            result = collect_snapshot(sym_cfg, mock, args.debug)
+            if result["success"]:
+                log.info(f"✅ Done: {result['symbol']} | "
+                         f"{result['rows']} strikes | Spot ₹{result['spot']:,.2f}")
+            else:
+                log.error(f"❌ Failed: {result['symbol']} — {result['error']}")
+                log.error(
+                    "\nTROUBLESHOOTING:\n"
+                    "  1. Run with --debug flag to see full HTTP response:\n"
+                    "       python collector.py --debug --once\n"
+                    "  2. Make sure you have internet access (try: curl https://www.nseindia.com)\n"
+                    "  3. If NSE blocks the IP, try toggling mobile data off/on\n"
+                    "  4. Check logs in: " + str(LOG_DIR.resolve())
+                )
         return
 
-    start_scheduler(symbols, interval, market_open, market_close, mock)
+    start_scheduler(symbols, interval, market_open, market_close, mock, args.debug)
 
 
 if __name__ == "__main__":
