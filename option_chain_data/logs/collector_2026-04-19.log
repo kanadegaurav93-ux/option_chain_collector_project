@@ -1,0 +1,44 @@
+2026-04-19 12:34:36,083 [INFO] ============================================================
+2026-04-19 12:34:36,084 [INFO] NSE Option Chain Collector — Standalone
+2026-04-19 12:34:36,084 [INFO]   Symbols  : ['ANGELONE']
+2026-04-19 12:34:36,084 [INFO]   Interval : 5 min
+2026-04-19 12:34:36,084 [INFO]   Market   : 09:15 – 15:30
+2026-04-19 12:34:36,084 [INFO]   Mock     : False
+2026-04-19 12:34:36,084 [INFO]   Data dir : /data/data/com.termux/files/home/option_chain_collector_project/option_chain_data
+2026-04-19 12:34:36,084 [INFO] ============================================================
+2026-04-19 12:34:36,084 [INFO] Scheduler started | interval=5m | market=09:15–15:30 | mock=False
+2026-04-19 12:34:36,084 [INFO] Symbols: ['ANGELONE']
+2026-04-19 12:34:36,085 [INFO] Running initial fetch ...
+2026-04-19 12:38:17,314 [INFO] Shutdown signal received — stopping ...
+2026-04-19 12:38:24,934 [INFO] Shutdown signal received — stopping ...
+2026-04-19 12:38:26,103 [INFO] Collector stopped.
+2026-04-19 12:38:37,090 [INFO] ============================================================
+2026-04-19 12:38:37,090 [INFO] NSE Option Chain Collector — Standalone
+2026-04-19 12:38:37,090 [INFO]   Symbols  : ['ANGELONE']
+2026-04-19 12:38:37,091 [INFO]   Interval : 5 min
+2026-04-19 12:38:37,091 [INFO]   Market   : 09:15 – 15:30
+2026-04-19 12:38:37,091 [INFO]   Mock     : False
+2026-04-19 12:38:37,091 [INFO]   Data dir : /data/data/com.termux/files/home/option_chain_collector_project/option_chain_data
+2026-04-19 12:38:37,092 [INFO] ============================================================
+2026-04-19 12:38:37,092 [INFO] --once flag: fetching once and exiting
+2026-04-19 12:38:37,092 [INFO] [LIVE] https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-19 12:38:37,093 [INFO] Warming up NSE session (homepage) ...
+2026-04-19 12:38:38,878 [INFO] Warming up NSE session (option-chain page) ...
+2026-04-19 12:38:40,133 [INFO] NSE session ready ✓
+2026-04-19 12:38:40,502 [ERROR]   Fetch error [ANGELONE]: Expecting value: line 1 column 1 (char 0)
+2026-04-19 12:38:40,502 [INFO] Done.
+2026-04-19 12:43:13,169 [INFO] ============================================================
+2026-04-19 12:43:13,170 [INFO] NSE Option Chain Collector — Standalone
+2026-04-19 12:43:13,170 [INFO]   Symbols  : ['RELIANCE']
+2026-04-19 12:43:13,170 [INFO]   Interval : 5 min
+2026-04-19 12:43:13,170 [INFO]   Market   : 09:15 – 15:30
+2026-04-19 12:43:13,170 [INFO]   Mock     : False
+2026-04-19 12:43:13,170 [INFO]   Data dir : /data/data/com.termux/files/home/option_chain_collector_project/option_chain_data
+2026-04-19 12:43:13,170 [INFO] ============================================================
+2026-04-19 12:43:13,170 [INFO] --once flag: fetching once and exiting
+2026-04-19 12:43:13,170 [INFO] [LIVE] https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=RELIANCE&expiry=28-Apr-2026
+2026-04-19 12:43:13,171 [INFO] Warming up NSE session (homepage) ...
+2026-04-19 12:43:14,895 [INFO] Warming up NSE session (option-chain page) ...
+2026-04-19 12:43:16,196 [INFO] NSE session ready ✓
+2026-04-19 12:43:16,608 [ERROR]   Fetch error [RELIANCE]: Expecting value: line 1 column 1 (char 0)
+2026-04-19 12:43:16,608 [INFO] Done.
