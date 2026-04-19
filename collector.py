@@ -27,6 +27,7 @@ from datetime import datetime, date
 from pathlib import Path
 from typing import Optional
 
+import pandas as pd
 import requests
 import schedule
 
@@ -157,6 +158,31 @@ def export_csv(symbol: str, trade_date: date):
         log.info(f"CSV updated → {csv_path.name}")
     except Exception as e:
         log.warning(f"CSV export failed: {e}")
+
+
+def export_parquet(symbol: str, trade_date: date):
+    db_path    = get_db_path(symbol, trade_date)
+    parquet_path = db_path.parent / f"{symbol}_{trade_date.isoformat()}.parquet"
+    if not db_path.exists():
+        return
+    try:
+        conn      = sqlite3.connect(db_path)
+        cur       = conn.execute("SELECT MAX(snapshot_ts) FROM option_chain_snapshots")
+        latest_ts = cur.fetchone()[0]
+        if not latest_ts:
+            conn.close()
+            return
+        df = pd.read_sql(
+            "SELECT * FROM option_chain_snapshots WHERE snapshot_ts=? ORDER BY strike_price",
+            conn,
+            params=(latest_ts,)
+        )
+        conn.close()
+        if len(df) > 0:
+            df.to_parquet(parquet_path, engine="pyarrow", index=False, compression="snappy")
+            log.info(f"Parquet updated → {parquet_path.name}")
+    except Exception as e:
+        log.warning(f"Parquet export failed: {e}")
 
 # ── NSE Session ───────────────────────────────────────────────────────────────
 _session_cache: dict = {"session": None, "ts": 0.0}
@@ -440,6 +466,11 @@ def collect_snapshot(cfg: dict, mock: bool, debug: bool = False) -> dict:
         export_csv(symbol, trade_date)
     except Exception as e:
         log.warning(f"CSV export skipped: {e}")
+
+    try:
+        export_parquet(symbol, trade_date)
+    except Exception as e:
+        log.warning(f"Parquet export skipped: {e}")
 
     result.update(success=True, rows=len(rows),
                   spot=rows[0]["underlying_value"])

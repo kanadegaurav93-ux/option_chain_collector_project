@@ -10,6 +10,7 @@ pip install -r requirements.txt
 
 # 2. Run the collector (leave terminal open during market hours)
 python collector.py
+python collector.py --skip-weekend-check --interval 1
 ```
 
 ## Configuration (`collector.py` → `CONFIG` dict)
