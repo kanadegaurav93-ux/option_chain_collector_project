@@ -28,8 +28,14 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+import pytz
 import requests
 import schedule
+
+# ── IST Timezone Helper ───────────────────────────────────────────────────────
+def now_ist():
+    """Get current datetime in IST timezone."""
+    return datetime.now(pytz.timezone('Asia/Kolkata'))
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR  = Path(__file__).parent
@@ -57,7 +63,7 @@ SESSION_TTL = 300   # reuse session for 5 minutes
 
 # ── Logger ────────────────────────────────────────────────────────────────────
 def setup_logger(debug: bool = False) -> logging.Logger:
-    log_file = LOG_DIR / f"collector_{date.today().isoformat()}.log"
+    log_file = LOG_DIR / f"collector_{now_ist().date().isoformat()}.log"
     level    = logging.DEBUG if debug else logging.INFO
     fmt      = "%(asctime)s [%(levelname)s] %(message)s"
     logger   = logging.getLogger("collector")
@@ -438,7 +444,7 @@ def parse_response(raw: dict, symbol: str, expiry: str,
 # ── Collect one snapshot ───────────────────────────────────────────────────────
 def collect_snapshot(cfg: dict, mock: bool, debug: bool = False) -> dict:
     symbol     = cfg["symbol"]
-    now        = datetime.now()
+    now        = now_ist()
     snap_ts    = now.isoformat(timespec="seconds")
     trade_date = now.date()
     result     = {"symbol": symbol, "success": False, "rows": 0,
@@ -481,7 +487,7 @@ def collect_snapshot(cfg: dict, mock: bool, debug: bool = False) -> dict:
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 def run_job(cfg: dict, mock: bool, debug: bool,
             market_open: str, market_close: str, skip_weekend: bool):
-    now = datetime.now()
+    now = now_ist()
     if not skip_weekend and now.weekday() >= 5:
         log.debug(f"Weekend — skipping ({now.strftime('%A')})")
         return

@@ -3,3 +3,4 @@ schedule>=1.2
 pandas>=2.0
 pyarrow>=14.0
 streamlit>=1.32
+pytz>=2023.3

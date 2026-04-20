@@ -1,0 +1,59 @@
+2026-04-20 03:40:57,251 [INFO] ============================================================
+2026-04-20 03:40:57,251 [INFO] NSE Option Chain Collector — Standalone
+2026-04-20 03:40:57,251 [INFO]   Python   : 3.12.1
+2026-04-20 03:40:57,252 [INFO]   Symbols  : ['ANGELONE']
+2026-04-20 03:40:57,252 [INFO]   Interval : 5 min
+2026-04-20 03:40:57,252 [INFO]   Market   : 09:15 – 15:30
+2026-04-20 03:40:57,252 [INFO]   Mock     : False
+2026-04-20 03:40:57,252 [INFO]   Debug    : False
+2026-04-20 03:40:57,252 [INFO]   Skip Weekend: False
+2026-04-20 03:40:57,252 [INFO]   Data dir : /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 03:40:57,252 [INFO] ============================================================
+2026-04-20 03:40:57,252 [INFO] ============================================================
+2026-04-20 03:40:57,252 [INFO] Scheduler started | interval=5m | market=09:15–15:30 | mock=False
+2026-04-20 03:40:57,253 [INFO] Symbols : ['ANGELONE']
+2026-04-20 03:40:57,253 [INFO] Data dir: /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 03:40:57,253 [INFO] ============================================================
+2026-04-20 03:40:57,253 [INFO] Running initial fetch at startup ...
+2026-04-20 03:54:26,690 [INFO] Shutdown signal received — stopping ...
+2026-04-20 03:54:27,267 [INFO] Collector stopped cleanly.
+2026-04-20 03:57:17,941 [INFO] ============================================================
+2026-04-20 03:57:17,942 [INFO] NSE Option Chain Collector — Standalone
+2026-04-20 03:57:17,942 [INFO]   Python   : 3.12.1
+2026-04-20 03:57:17,942 [INFO]   Symbols  : ['ANGELONE']
+2026-04-20 03:57:17,942 [INFO]   Interval : 5 min
+2026-04-20 03:57:17,942 [INFO]   Market   : 09:15 – 15:30
+2026-04-20 03:57:17,942 [INFO]   Mock     : False
+2026-04-20 03:57:17,942 [INFO]   Debug    : False
+2026-04-20 03:57:17,942 [INFO]   Skip Weekend: True
+2026-04-20 03:57:17,942 [INFO]   Data dir : /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 03:57:17,943 [INFO] ============================================================
+2026-04-20 03:57:17,943 [INFO] ============================================================
+2026-04-20 03:57:17,943 [INFO] Scheduler started | interval=5m | market=09:15–15:30 | mock=False
+2026-04-20 03:57:17,943 [INFO] Symbols : ['ANGELONE']
+2026-04-20 03:57:17,943 [INFO] Data dir: /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 03:57:17,943 [INFO] ============================================================
+2026-04-20 03:57:17,943 [INFO] Running initial fetch at startup ...
+2026-04-20 03:59:51,468 [INFO] Shutdown signal received — stopping ...
+2026-04-20 03:59:57,946 [INFO] Collector stopped cleanly.
+2026-04-20 04:00:00,997 [INFO] ============================================================
+2026-04-20 04:00:00,997 [INFO] NSE Option Chain Collector — Standalone
+2026-04-20 04:00:00,997 [INFO]   Python   : 3.12.1
+2026-04-20 04:00:00,997 [INFO]   Symbols  : ['ANGELONE']
+2026-04-20 04:00:00,997 [INFO]   Interval : 5 min
+2026-04-20 04:00:00,998 [INFO]   Market   : 09:15 – 15:30
+2026-04-20 04:00:00,998 [INFO]   Mock     : False
+2026-04-20 04:00:00,998 [INFO]   Debug    : False
+2026-04-20 04:00:00,998 [INFO]   Skip Weekend: False
+2026-04-20 04:00:00,998 [INFO]   Data dir : /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 04:00:00,998 [INFO] ============================================================
+2026-04-20 04:00:00,998 [INFO] --once mode: fetching once (market hours ignored)
+2026-04-20 04:00:00,998 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:00:00,998 [INFO] Creating new NSE session ...
+2026-04-20 04:00:05,840 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:00:06,705 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:00:06,705 [INFO]   Parsed 37 strikes | Spot: ₹320.32
+2026-04-20 04:00:06,722 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:00:07,200 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:00:07,200 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹320.32 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:00:07,201 [INFO] ✅ Done: ANGELONE | 37 strikes | Spot ₹320.32
