@@ -91,6 +91,30 @@ To start the collector automatically at boot (it self-guards for market hours):
 @reboot cd /path/to/project && python collector.py >> option_chain_data/logs/cron.log 2>&1 &
 ```
 
+## Run unattended in GitHub Codespaces
+
+To keep the collector running even if your browser window closes, start it in detached background mode:
+
+```bash
+python collector.py --daemon
+```
+
+A PID file is created at `collector.pid`.
+
+Check status:
+
+```bash
+python collector.py --status
+```
+
+Stop the background collector cleanly:
+
+```bash
+python collector.py --stop
+```
+
+Logs continue to write to `option_chain_data/logs/collector_YYYY-MM-DD.log`.
+
 ## Automate on Windows (Task Scheduler)
 
 Create a task that runs `python collector.py` at logon / daily.

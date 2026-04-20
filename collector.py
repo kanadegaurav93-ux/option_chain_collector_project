@@ -12,9 +12,11 @@ Usage:
     python collector.py --mock           # use local OptionChainResponse.json
     python collector.py --debug          # print full HTTP details for diagnosis
     python collector.py --skip-weekend-check  # collect even on weekends
+    python collector.py --daemon
 """
 
 import argparse
+import atexit
 import csv
 import json
 import logging
@@ -43,6 +45,7 @@ DATA_DIR  = BASE_DIR / "option_chain_data"
 LOG_DIR   = DATA_DIR / "logs"
 MOCK_FILE = BASE_DIR / "OptionChainResponse.json"
 CFG_FILE  = BASE_DIR / "config.json"
+PID_FILE  = BASE_DIR / "collector.pid"
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -62,7 +65,7 @@ BASE_URL    = "https://www.nseindia.com"
 SESSION_TTL = 300   # reuse session for 5 minutes
 
 # ── Logger ────────────────────────────────────────────────────────────────────
-def setup_logger(debug: bool = False) -> logging.Logger:
+def setup_logger(debug: bool = False, daemon: bool = False) -> logging.Logger:
     log_file = LOG_DIR / f"collector_{now_ist().date().isoformat()}.log"
     level    = logging.DEBUG if debug else logging.INFO
     fmt      = "%(asctime)s [%(levelname)s] %(message)s"
@@ -72,13 +75,138 @@ def setup_logger(debug: bool = False) -> logging.Logger:
     if not logger.handlers:
         fh = logging.FileHandler(log_file, encoding="utf-8")
         fh.setFormatter(logging.Formatter(fmt))
-        sh = logging.StreamHandler(sys.stdout)
-        sh.setFormatter(logging.Formatter(fmt))
         logger.addHandler(fh)
-        logger.addHandler(sh)
+        if not daemon:
+            sh = logging.StreamHandler(sys.stdout)
+            sh.setFormatter(logging.Formatter(fmt))
+            logger.addHandler(sh)
     return logger
 
 log = setup_logger()
+
+# ── Daemon / background helpers ───────────────────────────────────────────────
+def pid_is_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def read_pid_file() -> Optional[int]:
+    if not PID_FILE.exists():
+        return None
+    try:
+        with open(PID_FILE, "r", encoding="utf-8") as f:
+            return int(f.read().strip())
+    except Exception:
+        return None
+
+
+def write_pid_file(pid: int) -> None:
+    with open(PID_FILE, "w", encoding="utf-8") as f:
+        f.write(str(pid))
+
+
+def remove_pid_file() -> None:
+    try:
+        if PID_FILE.exists():
+            PID_FILE.unlink()
+    except Exception as e:
+        log.debug(f"Failed to remove PID file: {e}")
+
+
+def check_existing_daemon() -> Optional[int]:
+    pid = read_pid_file()
+    if pid is None:
+        return None
+    if pid_is_running(pid):
+        return pid
+    remove_pid_file()
+    return None
+
+
+def stop_daemon() -> None:
+    pid = read_pid_file()
+    if pid is None:
+        log.error("No pid file found. Is the collector running in daemon mode?")
+        return
+    if not pid_is_running(pid):
+        log.warning(f"PID file exists but process {pid} is not running.")
+        remove_pid_file()
+        return
+    log.info(f"Stopping collector with PID {pid} ...")
+    try:
+        os.kill(pid, signal.SIGTERM)
+        for _ in range(10):
+            if not pid_is_running(pid):
+                break
+            time.sleep(0.5)
+        if pid_is_running(pid):
+            log.warning(f"Process {pid} did not exit cleanly; sending SIGKILL.")
+            os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        log.warning(f"Process {pid} is no longer running.")
+    except Exception as e:
+        log.error(f"Failed to stop process {pid}: {e}")
+    remove_pid_file()
+
+
+def status_daemon() -> None:
+    pid = read_pid_file()
+    if pid is None:
+        log.info("No collector PID file found. Collector is not running.")
+        return
+    if pid_is_running(pid):
+        log.info(f"Collector is running with PID {pid}.")
+        return
+
+    log.warning(f"PID file exists but process {pid} is not running. Removing stale PID file.")
+    remove_pid_file()
+
+
+def daemonize() -> None:
+    """Detach the collector from the controlling terminal on POSIX systems."""
+    if os.name != "posix":
+        log.warning("Daemon mode is only supported on POSIX systems; running in foreground.")
+        return
+
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
+    except OSError as exc:
+        log.error(f"First fork failed: {exc}")
+        return
+
+    os.chdir(str(BASE_DIR))
+    os.setsid()
+    os.umask(0)
+
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
+    except OSError as exc:
+        log.error(f"Second fork failed: {exc}")
+        return
+
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        with open(os.devnull, "rb", 0) as stdin, \
+             open(os.devnull, "ab", 0) as stdout, \
+             open(os.devnull, "ab", 0) as stderr:
+            os.dup2(stdin.fileno(), sys.stdin.fileno())
+            os.dup2(stdout.fileno(), sys.stdout.fileno())
+            os.dup2(stderr.fileno(), sys.stderr.fileno())
+    except Exception:
+        pass
+
+    write_pid_file(os.getpid())
+    atexit.register(remove_pid_file)
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    log.info("Daemon mode active: collector detached from terminal.")
 
 # ── Config ────────────────────────────────────────────────────────────────────
 def load_config() -> dict:
@@ -564,6 +692,12 @@ Examples:
                    help="Use OptionChainResponse.json instead of live API")
     p.add_argument("--debug",    action="store_true",
                    help="Print full HTTP request/response details")
+    p.add_argument("--daemon",   action="store_true",
+                   help="Detach and run the collector in the background")
+    p.add_argument("--stop",     action="store_true",
+                   help="Stop the running daemon collector")
+    p.add_argument("--status",   action="store_true",
+                   help="Show the running status of the daemon collector")
     p.add_argument("--skip-weekend-check", action="store_true",
                    help="Skip weekend check (collect data even on Sat/Sun)")
     return p.parse_args()
@@ -574,7 +708,7 @@ def main():
 
     # Re-init logger with debug level if requested
     global log
-    log = setup_logger(debug=args.debug)
+    log = setup_logger(debug=args.debug, daemon=args.daemon)
 
     cfg          = load_config()
     mock         = args.mock     or cfg.get("mock_mode",    False)
@@ -582,6 +716,22 @@ def main():
     market_open  = args.open     or cfg.get("market_open",  "09:15")
     market_close = args.close    or cfg.get("market_close", "15:30")
     skip_weekend = args.skip_weekend_check
+
+    if args.stop:
+        stop_daemon()
+        return
+
+    if args.status:
+        status_daemon()
+        return
+
+    if args.daemon:
+        existing_pid = check_existing_daemon()
+        if existing_pid is not None:
+            log.error(f"Collector already running with PID {existing_pid}.")
+            sys.exit(1)
+        log.info("Starting collector in daemon/background mode.")
+        daemonize()
 
     if args.symbol and args.expiry:
         symbols = [{"symbol": args.symbol.upper(),

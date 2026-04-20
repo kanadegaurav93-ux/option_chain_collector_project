@@ -57,3 +57,466 @@
 2026-04-20 04:00:07,200 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
 2026-04-20 04:00:07,200 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹320.32 | DB: ANGELONE_2026-04-20.db
 2026-04-20 04:00:07,201 [INFO] ✅ Done: ANGELONE | 37 strikes | Spot ₹320.32
+2026-04-20 04:00:53,301 [INFO] ============================================================
+2026-04-20 04:00:53,301 [INFO] NSE Option Chain Collector — Standalone
+2026-04-20 04:00:53,302 [INFO]   Python   : 3.12.1
+2026-04-20 04:00:53,302 [INFO]   Symbols  : ['ANGELONE']
+2026-04-20 04:00:53,302 [INFO]   Interval : 5 min
+2026-04-20 04:00:53,302 [INFO]   Market   : 09:15 – 15:30
+2026-04-20 04:00:53,303 [INFO]   Mock     : False
+2026-04-20 04:00:53,303 [INFO]   Debug    : False
+2026-04-20 04:00:53,303 [INFO]   Skip Weekend: False
+2026-04-20 04:00:53,303 [INFO]   Data dir : /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 04:00:53,304 [INFO] ============================================================
+2026-04-20 04:00:53,304 [INFO] ============================================================
+2026-04-20 04:00:53,304 [INFO] Scheduler started | interval=5m | market=09:15–15:30 | mock=False
+2026-04-20 04:00:53,305 [INFO] Symbols : ['ANGELONE']
+2026-04-20 04:00:53,305 [INFO] Data dir: /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 04:00:53,305 [INFO] ============================================================
+2026-04-20 04:00:53,305 [INFO] Running initial fetch at startup ...
+2026-04-20 04:00:53,305 [INFO] === Snapshot @ 09:30:53 ===
+2026-04-20 04:00:53,305 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:00:53,305 [INFO] Creating new NSE session ...
+2026-04-20 04:00:58,325 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:00:58,387 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:00:58,387 [INFO]   Parsed 37 strikes | Spot: ₹320.32
+2026-04-20 04:00:58,394 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:00:58,412 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:00:58,412 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹320.32 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:05:58,417 [INFO] === Snapshot @ 09:35:58 ===
+2026-04-20 04:05:58,417 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:05:58,417 [INFO] Creating new NSE session ...
+2026-04-20 04:06:03,511 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:06:03,772 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:06:03,772 [INFO]   Parsed 37 strikes | Spot: ₹320.19
+2026-04-20 04:06:03,779 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:06:03,783 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:06:03,783 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹320.19 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:11:03,790 [INFO] === Snapshot @ 09:41:03 ===
+2026-04-20 04:11:03,790 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:11:03,790 [INFO] Creating new NSE session ...
+2026-04-20 04:11:08,765 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:11:10,140 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:11:10,140 [INFO]   Parsed 37 strikes | Spot: ₹320.97
+2026-04-20 04:11:10,147 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:11:10,152 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:11:10,152 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹320.97 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:16:10,159 [INFO] === Snapshot @ 09:46:10 ===
+2026-04-20 04:16:10,160 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:16:10,160 [INFO] Creating new NSE session ...
+2026-04-20 04:16:15,322 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:16:24,119 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:16:24,119 [INFO]   Parsed 37 strikes | Spot: ₹322.20
+2026-04-20 04:16:24,125 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:16:24,131 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:16:24,131 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹322.20 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:21:24,136 [INFO] === Snapshot @ 09:51:24 ===
+2026-04-20 04:21:24,136 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:21:24,136 [INFO] Creating new NSE session ...
+2026-04-20 04:21:29,039 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:21:31,125 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:21:31,128 [INFO]   Parsed 37 strikes | Spot: ₹322.69
+2026-04-20 04:21:31,146 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:21:31,166 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:21:31,167 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹322.69 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:26:31,171 [INFO] === Snapshot @ 09:56:31 ===
+2026-04-20 04:26:31,171 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:26:31,171 [INFO] Creating new NSE session ...
+2026-04-20 04:26:35,947 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:26:36,356 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:26:36,356 [INFO]   Parsed 37 strikes | Spot: ₹322.98
+2026-04-20 04:26:36,367 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:26:36,378 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:26:36,378 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹322.98 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:31:36,385 [INFO] === Snapshot @ 10:01:36 ===
+2026-04-20 04:31:36,385 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:31:36,385 [INFO] Creating new NSE session ...
+2026-04-20 04:31:41,592 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:31:41,631 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:31:41,632 [INFO]   Parsed 37 strikes | Spot: ₹320.80
+2026-04-20 04:31:41,638 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:31:41,642 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:31:41,643 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹320.80 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:36:41,648 [INFO] === Snapshot @ 10:06:41 ===
+2026-04-20 04:36:41,649 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:36:41,649 [INFO] Creating new NSE session ...
+2026-04-20 04:36:46,525 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:36:46,840 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:36:46,840 [INFO]   Parsed 37 strikes | Spot: ₹322.17
+2026-04-20 04:36:46,847 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:36:46,851 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:36:46,851 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹322.17 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:41:46,862 [INFO] === Snapshot @ 10:11:46 ===
+2026-04-20 04:41:46,863 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:41:46,863 [INFO] Creating new NSE session ...
+2026-04-20 04:41:52,794 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:41:53,242 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:41:53,242 [INFO]   Parsed 37 strikes | Spot: ₹321.13
+2026-04-20 04:41:53,250 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:41:53,256 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:41:53,256 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹321.13 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:46:53,260 [INFO] === Snapshot @ 10:16:53 ===
+2026-04-20 04:46:53,261 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:46:53,261 [INFO] Creating new NSE session ...
+2026-04-20 04:46:58,463 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:46:58,515 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:46:58,515 [INFO]   Parsed 37 strikes | Spot: ₹322.00
+2026-04-20 04:46:58,522 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:46:58,527 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:46:58,527 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹322.00 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:51:58,531 [INFO] === Snapshot @ 10:21:58 ===
+2026-04-20 04:51:58,531 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:51:58,531 [INFO] Creating new NSE session ...
+2026-04-20 04:52:03,529 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:52:03,585 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:52:03,586 [INFO]   Parsed 37 strikes | Spot: ₹321.94
+2026-04-20 04:52:03,592 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:52:03,597 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:52:03,597 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹321.94 | DB: ANGELONE_2026-04-20.db
+2026-04-20 04:57:03,601 [INFO] === Snapshot @ 10:27:03 ===
+2026-04-20 04:57:03,601 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 04:57:03,601 [INFO] Creating new NSE session ...
+2026-04-20 04:57:08,557 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 04:57:08,591 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 04:57:08,592 [INFO]   Parsed 37 strikes | Spot: ₹322.19
+2026-04-20 04:57:08,599 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 04:57:08,604 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 04:57:08,604 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹322.19 | DB: ANGELONE_2026-04-20.db
+2026-04-20 05:02:08,609 [INFO] === Snapshot @ 10:32:08 ===
+2026-04-20 05:02:08,609 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 05:02:08,609 [INFO] Creating new NSE session ...
+2026-04-20 05:02:13,859 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 05:02:14,437 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 05:02:14,437 [INFO]   Parsed 37 strikes | Spot: ₹316.34
+2026-04-20 05:02:14,444 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 05:02:14,449 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 05:02:14,449 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹316.34 | DB: ANGELONE_2026-04-20.db
+2026-04-20 05:07:14,453 [INFO] === Snapshot @ 10:37:14 ===
+2026-04-20 05:07:14,453 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 05:07:14,453 [INFO] Creating new NSE session ...
+2026-04-20 05:07:19,509 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 05:07:19,554 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 05:07:19,555 [INFO]   Parsed 37 strikes | Spot: ₹318.74
+2026-04-20 05:07:19,562 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 05:07:19,568 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 05:07:19,568 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹318.74 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:11:50,683 [INFO] Starting collector in daemon/background mode.
+2026-04-20 07:11:50,692 [INFO] Daemon mode active: collector detached from terminal.
+2026-04-20 07:11:50,694 [INFO] ============================================================
+2026-04-20 07:11:50,696 [INFO] NSE Option Chain Collector — Standalone
+2026-04-20 07:11:50,696 [INFO]   Python   : 3.12.1
+2026-04-20 07:11:50,696 [INFO]   Symbols  : ['ANGELONE']
+2026-04-20 07:11:50,696 [INFO]   Interval : 5 min
+2026-04-20 07:11:50,696 [INFO]   Market   : 09:15 – 15:30
+2026-04-20 07:11:50,697 [INFO]   Mock     : False
+2026-04-20 07:11:50,697 [INFO]   Debug    : False
+2026-04-20 07:11:50,697 [INFO]   Skip Weekend: False
+2026-04-20 07:11:50,697 [INFO]   Data dir : /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 07:11:50,697 [INFO] ============================================================
+2026-04-20 07:11:50,697 [INFO] ============================================================
+2026-04-20 07:11:50,697 [INFO] Scheduler started | interval=5m | market=09:15–15:30 | mock=False
+2026-04-20 07:11:50,698 [INFO] Symbols : ['ANGELONE']
+2026-04-20 07:11:50,698 [INFO] Data dir: /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 07:11:50,698 [INFO] ============================================================
+2026-04-20 07:11:50,699 [INFO] Running initial fetch at startup ...
+2026-04-20 07:11:50,700 [INFO] === Snapshot @ 12:41:50 ===
+2026-04-20 07:11:50,700 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:11:50,700 [INFO] Creating new NSE session ...
+2026-04-20 07:11:55,780 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:11:56,056 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:11:56,057 [INFO]   Parsed 37 strikes | Spot: ₹315.88
+2026-04-20 07:11:56,065 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:11:56,681 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:11:56,681 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹315.88 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:12:09,447 [INFO] Starting collector in daemon/background mode.
+2026-04-20 07:12:09,466 [INFO] Daemon mode active: collector detached from terminal.
+2026-04-20 07:12:09,468 [INFO] ============================================================
+2026-04-20 07:12:09,468 [INFO] NSE Option Chain Collector — Standalone
+2026-04-20 07:12:09,469 [INFO]   Python   : 3.12.1
+2026-04-20 07:12:09,469 [INFO]   Symbols  : ['ANGELONE']
+2026-04-20 07:12:09,469 [INFO]   Interval : 5 min
+2026-04-20 07:12:09,469 [INFO]   Market   : 09:15 – 15:30
+2026-04-20 07:12:09,469 [INFO]   Mock     : False
+2026-04-20 07:12:09,470 [INFO]   Debug    : False
+2026-04-20 07:12:09,471 [INFO]   Skip Weekend: False
+2026-04-20 07:12:09,472 [INFO]   Data dir : /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 07:12:09,472 [INFO] ============================================================
+2026-04-20 07:12:09,472 [INFO] ============================================================
+2026-04-20 07:12:09,472 [INFO] Scheduler started | interval=5m | market=09:15–15:30 | mock=False
+2026-04-20 07:12:09,472 [INFO] Symbols : ['ANGELONE']
+2026-04-20 07:12:09,473 [INFO] Data dir: /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 07:12:09,473 [INFO] ============================================================
+2026-04-20 07:12:09,474 [INFO] Running initial fetch at startup ...
+2026-04-20 07:12:09,474 [INFO] === Snapshot @ 12:42:09 ===
+2026-04-20 07:12:09,476 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:12:09,476 [INFO] Creating new NSE session ...
+2026-04-20 07:12:14,379 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:12:14,449 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:12:14,449 [INFO]   Parsed 37 strikes | Spot: ₹315.88
+2026-04-20 07:12:14,456 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:12:14,473 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:12:14,473 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹315.88 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:16:56,688 [INFO] === Snapshot @ 12:46:56 ===
+2026-04-20 07:16:56,688 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:16:56,688 [INFO] Creating new NSE session ...
+2026-04-20 07:17:01,607 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:17:01,690 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:17:01,690 [INFO]   Parsed 37 strikes | Spot: ₹316.70
+2026-04-20 07:17:01,697 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:17:01,701 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:17:01,702 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹316.70 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:17:14,477 [INFO] === Snapshot @ 12:47:14 ===
+2026-04-20 07:17:14,478 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:17:14,478 [INFO] Creating new NSE session ...
+2026-04-20 07:17:19,242 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:17:19,335 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:17:19,335 [INFO]   Parsed 37 strikes | Spot: ₹316.70
+2026-04-20 07:17:19,341 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:17:19,346 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:17:19,346 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹316.70 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:17:22,810 [INFO] Shutdown signal received — stopping ...
+2026-04-20 07:17:29,346 [INFO] Collector stopped cleanly.
+2026-04-20 07:22:01,707 [INFO] === Snapshot @ 12:52:01 ===
+2026-04-20 07:22:01,707 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:22:01,707 [INFO] Creating new NSE session ...
+2026-04-20 07:22:06,588 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:22:07,030 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:22:07,031 [INFO]   Parsed 37 strikes | Spot: ₹314.80
+2026-04-20 07:22:07,037 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:22:07,049 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:22:07,050 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹314.80 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:25:42,534 [INFO] No collector PID file found. Collector is not running.
+2026-04-20 07:26:08,718 [INFO] Shutdown signal received — stopping ...
+2026-04-20 07:26:17,059 [INFO] Collector stopped cleanly.
+2026-04-20 07:26:28,888 [INFO] No collector PID file found. Collector is not running.
+2026-04-20 07:26:39,296 [INFO] Starting collector in daemon/background mode.
+2026-04-20 07:26:39,306 [INFO] Daemon mode active: collector detached from terminal.
+2026-04-20 07:26:39,307 [INFO] ============================================================
+2026-04-20 07:26:39,307 [INFO] NSE Option Chain Collector — Standalone
+2026-04-20 07:26:39,307 [INFO]   Python   : 3.12.1
+2026-04-20 07:26:39,307 [INFO]   Symbols  : ['ANGELONE']
+2026-04-20 07:26:39,307 [INFO]   Interval : 5 min
+2026-04-20 07:26:39,307 [INFO]   Market   : 09:15 – 15:30
+2026-04-20 07:26:39,309 [INFO]   Mock     : False
+2026-04-20 07:26:39,309 [INFO]   Debug    : False
+2026-04-20 07:26:39,309 [INFO]   Skip Weekend: False
+2026-04-20 07:26:39,309 [INFO]   Data dir : /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 07:26:39,310 [INFO] ============================================================
+2026-04-20 07:26:39,310 [INFO] ============================================================
+2026-04-20 07:26:39,310 [INFO] Scheduler started | interval=5m | market=09:15–15:30 | mock=False
+2026-04-20 07:26:39,310 [INFO] Symbols : ['ANGELONE']
+2026-04-20 07:26:39,310 [INFO] Data dir: /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 07:26:39,310 [INFO] ============================================================
+2026-04-20 07:26:39,310 [INFO] Running initial fetch at startup ...
+2026-04-20 07:26:39,310 [INFO] === Snapshot @ 12:56:39 ===
+2026-04-20 07:26:39,311 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:26:39,311 [INFO] Creating new NSE session ...
+2026-04-20 07:26:44,305 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:26:44,946 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:26:44,946 [INFO]   Parsed 37 strikes | Spot: ₹315.21
+2026-04-20 07:26:44,954 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:26:44,970 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:26:44,970 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹315.21 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:27:13,420 [INFO] Collector is running with PID 13500.
+2026-04-20 07:31:44,977 [INFO] === Snapshot @ 13:01:44 ===
+2026-04-20 07:31:44,977 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:31:44,977 [INFO] Creating new NSE session ...
+2026-04-20 07:31:50,146 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:31:50,628 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:31:50,629 [INFO]   Parsed 37 strikes | Spot: ₹316.40
+2026-04-20 07:31:50,635 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:31:50,640 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:31:50,640 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹316.40 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:36:50,646 [INFO] === Snapshot @ 13:06:50 ===
+2026-04-20 07:36:50,646 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:36:50,646 [INFO] Creating new NSE session ...
+2026-04-20 07:36:55,531 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:36:55,811 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:36:55,811 [INFO]   Parsed 37 strikes | Spot: ₹316.27
+2026-04-20 07:36:55,818 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:36:55,822 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:36:55,822 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹316.27 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:41:55,833 [INFO] === Snapshot @ 13:11:55 ===
+2026-04-20 07:41:55,834 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:41:55,834 [INFO] Creating new NSE session ...
+2026-04-20 07:42:01,052 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:42:01,913 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:42:01,914 [INFO]   Parsed 37 strikes | Spot: ₹316.58
+2026-04-20 07:42:01,920 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:42:01,924 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:42:01,924 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹316.58 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:47:01,928 [INFO] === Snapshot @ 13:17:01 ===
+2026-04-20 07:47:01,929 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:47:01,929 [INFO] Creating new NSE session ...
+2026-04-20 07:47:07,005 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:47:07,771 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:47:07,771 [INFO]   Parsed 37 strikes | Spot: ₹318.09
+2026-04-20 07:47:07,778 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:47:07,782 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:47:07,782 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹318.09 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:52:07,786 [INFO] === Snapshot @ 13:22:07 ===
+2026-04-20 07:52:07,787 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:52:07,787 [INFO] Creating new NSE session ...
+2026-04-20 07:52:12,742 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:52:13,047 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:52:13,047 [INFO]   Parsed 37 strikes | Spot: ₹317.55
+2026-04-20 07:52:13,053 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:52:13,058 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:52:13,058 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹317.55 | DB: ANGELONE_2026-04-20.db
+2026-04-20 07:57:13,063 [INFO] === Snapshot @ 13:27:13 ===
+2026-04-20 07:57:13,064 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 07:57:13,064 [INFO] Creating new NSE session ...
+2026-04-20 07:57:17,980 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 07:57:18,937 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 07:57:18,937 [INFO]   Parsed 37 strikes | Spot: ₹317.32
+2026-04-20 07:57:18,943 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 07:57:18,947 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 07:57:18,947 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹317.32 | DB: ANGELONE_2026-04-20.db
+2026-04-20 08:19:32,189 [WARNING] PID file exists but process 13500 is not running.
+2026-04-20 08:57:44,571 [WARNING] PID file exists but process 13500 is not running. Removing stale PID file.
+2026-04-20 08:58:01,658 [INFO] Starting collector in daemon/background mode.
+2026-04-20 08:58:01,677 [INFO] Daemon mode active: collector detached from terminal.
+2026-04-20 08:58:01,681 [INFO] ============================================================
+2026-04-20 08:58:01,681 [INFO] NSE Option Chain Collector — Standalone
+2026-04-20 08:58:01,681 [INFO]   Python   : 3.12.1
+2026-04-20 08:58:01,681 [INFO]   Symbols  : ['ANGELONE']
+2026-04-20 08:58:01,683 [INFO]   Interval : 5 min
+2026-04-20 08:58:01,684 [INFO]   Market   : 09:15 – 15:30
+2026-04-20 08:58:01,684 [INFO]   Mock     : False
+2026-04-20 08:58:01,684 [INFO]   Debug    : False
+2026-04-20 08:58:01,685 [INFO]   Skip Weekend: False
+2026-04-20 08:58:01,689 [INFO]   Data dir : /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 08:58:01,689 [INFO] ============================================================
+2026-04-20 08:58:01,689 [INFO] ============================================================
+2026-04-20 08:58:01,689 [INFO] Scheduler started | interval=5m | market=09:15–15:30 | mock=False
+2026-04-20 08:58:01,690 [INFO] Symbols : ['ANGELONE']
+2026-04-20 08:58:01,690 [INFO] Data dir: /workspaces/option_chain_collector_project/option_chain_data
+2026-04-20 08:58:01,690 [INFO] ============================================================
+2026-04-20 08:58:01,690 [INFO] Running initial fetch at startup ...
+2026-04-20 08:58:01,691 [INFO] === Snapshot @ 14:28:01 ===
+2026-04-20 08:58:01,691 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 08:58:01,691 [INFO] Creating new NSE session ...
+2026-04-20 08:58:06,776 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 08:58:07,411 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 08:58:07,412 [INFO]   Parsed 37 strikes | Spot: ₹319.35
+2026-04-20 08:58:07,424 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 08:58:08,123 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 08:58:08,123 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹319.35 | DB: ANGELONE_2026-04-20.db
+2026-04-20 08:58:10,712 [INFO] Collector is running with PID 20227.
+2026-04-20 08:58:56,318 [INFO] Collector is running with PID 20227.
+2026-04-20 09:01:16,242 [INFO] Collector is running with PID 20227.
+2026-04-20 09:03:08,130 [INFO] === Snapshot @ 14:33:08 ===
+2026-04-20 09:03:08,131 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:03:08,131 [INFO] Creating new NSE session ...
+2026-04-20 09:03:13,355 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:03:13,444 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:03:13,444 [INFO]   Parsed 37 strikes | Spot: ₹319.20
+2026-04-20 09:03:13,451 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:03:13,455 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:03:13,456 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹319.20 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:08:13,460 [INFO] === Snapshot @ 14:38:13 ===
+2026-04-20 09:08:13,460 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:08:13,461 [INFO] Creating new NSE session ...
+2026-04-20 09:08:18,270 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:08:18,367 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:08:18,367 [INFO]   Parsed 37 strikes | Spot: ₹319.36
+2026-04-20 09:08:18,374 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:08:18,378 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:08:18,378 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹319.36 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:13:18,389 [INFO] === Snapshot @ 14:43:18 ===
+2026-04-20 09:13:18,389 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:13:18,389 [INFO] Creating new NSE session ...
+2026-04-20 09:13:23,719 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:13:23,768 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:13:23,769 [INFO]   Parsed 37 strikes | Spot: ₹319.34
+2026-04-20 09:13:23,812 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:13:23,833 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:13:23,834 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹319.34 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:13:53,188 [INFO] Collector is running with PID 20227.
+2026-04-20 09:18:23,851 [INFO] === Snapshot @ 14:48:23 ===
+2026-04-20 09:18:23,852 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:18:23,852 [INFO] Creating new NSE session ...
+2026-04-20 09:18:28,832 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:18:28,869 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:18:28,870 [INFO]   Parsed 37 strikes | Spot: ₹319.75
+2026-04-20 09:18:28,875 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:18:28,880 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:18:28,880 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹319.75 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:23:28,884 [INFO] === Snapshot @ 14:53:28 ===
+2026-04-20 09:23:28,884 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:23:28,884 [INFO] Creating new NSE session ...
+2026-04-20 09:23:33,694 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:23:33,755 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:23:33,755 [INFO]   Parsed 37 strikes | Spot: ₹319.94
+2026-04-20 09:23:33,762 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:23:33,766 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:23:33,767 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹319.94 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:28:33,772 [INFO] === Snapshot @ 14:58:33 ===
+2026-04-20 09:28:33,772 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:28:33,772 [INFO] Creating new NSE session ...
+2026-04-20 09:28:38,675 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:28:39,307 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:28:39,307 [INFO]   Parsed 37 strikes | Spot: ₹320.21
+2026-04-20 09:28:39,314 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:28:39,319 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:28:39,319 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹320.21 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:33:39,324 [INFO] === Snapshot @ 15:03:39 ===
+2026-04-20 09:33:39,324 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:33:39,324 [INFO] Creating new NSE session ...
+2026-04-20 09:33:44,385 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:33:44,708 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:33:44,709 [INFO]   Parsed 37 strikes | Spot: ₹319.59
+2026-04-20 09:33:44,715 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:33:44,720 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:33:44,720 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹319.59 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:36:04,616 [INFO] Collector is running with PID 20227.
+2026-04-20 09:38:44,728 [INFO] === Snapshot @ 15:08:44 ===
+2026-04-20 09:38:44,728 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:38:44,728 [INFO] Creating new NSE session ...
+2026-04-20 09:38:49,647 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:38:49,686 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:38:49,686 [INFO]   Parsed 37 strikes | Spot: ₹318.77
+2026-04-20 09:38:49,693 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:38:49,698 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:38:49,698 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹318.77 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:43:49,702 [INFO] === Snapshot @ 15:13:49 ===
+2026-04-20 09:43:49,702 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:43:49,702 [INFO] Creating new NSE session ...
+2026-04-20 09:43:54,602 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:43:54,765 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:43:54,765 [INFO]   Parsed 37 strikes | Spot: ₹319.99
+2026-04-20 09:43:54,771 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:43:54,776 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:43:54,776 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹319.99 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:48:54,781 [INFO] === Snapshot @ 15:18:54 ===
+2026-04-20 09:48:54,782 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:48:54,782 [INFO] Creating new NSE session ...
+2026-04-20 09:48:59,715 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:48:59,763 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:48:59,764 [INFO]   Parsed 37 strikes | Spot: ₹319.33
+2026-04-20 09:48:59,770 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:48:59,775 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:48:59,775 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹319.33 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:53:59,782 [INFO] === Snapshot @ 15:23:59 ===
+2026-04-20 09:53:59,782 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:53:59,782 [INFO] Creating new NSE session ...
+2026-04-20 09:54:04,714 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:54:05,180 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:54:05,181 [INFO]   Parsed 37 strikes | Spot: ₹318.50
+2026-04-20 09:54:05,188 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:54:05,192 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:54:05,192 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹318.50 | DB: ANGELONE_2026-04-20.db
+2026-04-20 09:59:05,199 [INFO] === Snapshot @ 15:29:05 ===
+2026-04-20 09:59:05,199 [INFO] [LIVE] Fetching → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+2026-04-20 09:59:05,200 [INFO] Creating new NSE session ...
+2026-04-20 09:59:10,122 [INFO] NSE session ready ✓  cookies: ['AKA_A2', '_abck', 'bm_sz', 'nsit']
+2026-04-20 09:59:10,919 [INFO]   ✓ Data received for ANGELONE on attempt 1
+2026-04-20 09:59:10,919 [INFO]   Parsed 37 strikes | Spot: ₹318.62
+2026-04-20 09:59:10,953 [INFO] CSV updated → ANGELONE_2026-04-20.csv
+2026-04-20 09:59:10,972 [INFO] Parquet updated → ANGELONE_2026-04-20.parquet
+2026-04-20 09:59:10,972 [INFO] ✅ ANGELONE: 37 strikes saved | Spot ₹318.62 | DB: ANGELONE_2026-04-20.db
+2026-04-20 10:07:37,086 [INFO] Collector is running with PID 20227.
+2026-04-20 10:12:04,478 [INFO] Collector is running with PID 20227.
+2026-04-20 10:12:36,131 [INFO] Stopping collector with PID 20227 ...
+2026-04-20 10:12:36,132 [INFO] Shutdown signal received — stopping ...
+2026-04-20 10:12:40,987 [INFO] Collector stopped cleanly.
