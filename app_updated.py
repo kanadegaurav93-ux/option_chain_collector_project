@@ -9,13 +9,14 @@ import sqlite3
 import threading
 import time
 import schedule
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+import altair as alt
 from DrissionPage import SessionPage
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ DATA_DIR  = Path("./option_chain_data")
 MOCK_FILE = Path("./OptionChainResponse.json")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 (DATA_DIR / "logs").mkdir(exist_ok=True)
+IST = timezone(timedelta(hours=5, minutes=30))
 
 POPULAR_SYMBOLS = [
     "ANGELONE","CDSL","CAMS","HAVELLS","TCS","INFY","RELIANCE",
@@ -47,6 +49,7 @@ _defaults = {
     "total_rows_stored": 0,
     "fetch_count":       0,
     "last_error":        None,
+    "last_parquet_warning": None,
     "mock_mode":         MOCK_FILE.exists(),
     "symbols_config": [
         {"symbol": "ANGELONE", "type": "Equity", "expiry": "28-Apr-2026"}
@@ -119,6 +122,23 @@ def insert_rows(conn, rows):
     """, rows)
     conn.commit()
 
+
+def normalize_snapshot_ts(series: pd.Series) -> pd.Series:
+    """Convert a snapshot_ts column to IST-aware datetimes."""
+    def _normalize(value):
+        if pd.isna(value):
+            return pd.NaT
+        if isinstance(value, str):
+            value = pd.to_datetime(value, errors="coerce")
+        if pd.isna(value):
+            return pd.NaT
+        if getattr(value, "tzinfo", None) is None:
+            return value.tz_localize(IST)
+        return value.tz_convert(IST)
+
+    return series.map(_normalize)
+
+
 def load_latest_snapshot(symbol: str) -> pd.DataFrame:
     db = get_db_path(symbol, date.today())
     if not db.exists():
@@ -140,15 +160,29 @@ def load_day(symbol: str, trade_date: date) -> pd.DataFrame:
     pq = DATA_DIR / symbol / trade_date.isoformat() / f"{symbol}_{trade_date.isoformat()}.parquet"
     db = get_db_path(symbol, trade_date)
     try:
+        df = pd.DataFrame()
         if pq.exists():
-            return pd.read_parquet(pq)
-        if db.exists():
+            try:
+                df = pd.read_parquet(pq)
+            except Exception as pq_err:
+                msg = (
+                    f"Parquet load failed for {symbol} {trade_date}: {pq_err}."
+                    " Falling back to SQLite."
+                )
+                _log(msg, "WARN")
+                st.session_state["last_parquet_warning"] = msg
+        if df.empty and db.exists():
             conn = sqlite3.connect(db)
             df = pd.read_sql(
                 "SELECT * FROM option_chain_snapshots ORDER BY snapshot_ts, strike_price", conn
             )
             conn.close()
-            return df
+        if df.empty:
+            return pd.DataFrame()
+
+        if "snapshot_ts" in df.columns:
+            df["snapshot_ts"] = normalize_snapshot_ts(df["snapshot_ts"])
+        return df
     except Exception as e:
         _log(f"load_day error [{symbol} {trade_date}]: {e}", "ERROR")
     return pd.DataFrame()
@@ -165,7 +199,8 @@ def load_date_range(symbol: str, start: date, end: date) -> pd.DataFrame:
     if not frames:
         return pd.DataFrame()
     df = pd.concat(frames, ignore_index=True)
-    df["snapshot_ts"] = pd.to_datetime(df["snapshot_ts"])
+    if "snapshot_ts" in df.columns:
+        df["snapshot_ts"] = normalize_snapshot_ts(df["snapshot_ts"])
     return df
 
 def get_available_dates(symbol: str) -> list:
@@ -186,7 +221,8 @@ def load_pcr_series(symbol: str, trade_date: date = None) -> pd.DataFrame:
     df = load_day(symbol, trade_date or date.today())
     if df.empty:
         return pd.DataFrame()
-    df["snapshot_ts"] = pd.to_datetime(df["snapshot_ts"])
+    if "snapshot_ts" in df.columns:
+        df["snapshot_ts"] = normalize_snapshot_ts(df["snapshot_ts"])
     grp = df.groupby("snapshot_ts").agg(
         total_pe_oi=("pe_oi", "sum"),
         total_ce_oi=("ce_oi", "sum")
@@ -205,7 +241,8 @@ def load_oi_series(symbol: str, strike: float, trade_date: date = None) -> pd.Da
         ORDER BY snapshot_ts
     """, conn, params=(strike,))
     conn.close()
-    df["snapshot_ts"] = pd.to_datetime(df["snapshot_ts"])
+    if "snapshot_ts" in df.columns:
+        df["snapshot_ts"] = normalize_snapshot_ts(df["snapshot_ts"])
     return df
 
 def count_snapshots_today(symbol: str) -> int:
@@ -217,14 +254,45 @@ def count_snapshots_today(symbol: str) -> int:
     conn.close()
     return n
 
+def load_all_ce_pe_prices(symbol: str, trade_date: date = None) -> pd.DataFrame:
+    """Load all CE and PE prices for all strikes and snapshots from database."""
+    db = get_db_path(symbol, trade_date or date.today())
+    if not db.exists():
+        return pd.DataFrame()
+    conn = sqlite3.connect(db)
+    df = pd.read_sql("""
+        SELECT snapshot_ts, strike_price, ce_price, pe_price, underlying_value
+        FROM option_chain_snapshots
+        ORDER BY snapshot_ts, strike_price
+    """, conn)
+    conn.close()
+    if "snapshot_ts" in df.columns:
+        df["snapshot_ts"] = normalize_snapshot_ts(df["snapshot_ts"])
+    return df
+
 def export_parquet(symbol: str, trade_date: date):
     db = get_db_path(symbol, trade_date)
+    if not db.exists():
+        return
     pq = db.parent / f"{symbol}_{trade_date.isoformat()}.parquet"
-    conn = sqlite3.connect(db)
-    df = pd.read_sql("SELECT * FROM option_chain_snapshots ORDER BY snapshot_ts, strike_price", conn)
-    conn.close()
-    df.to_parquet(pq, index=False, compression="snappy")
-    _log(f"Parquet written: {pq.name}")
+    try:
+        conn = sqlite3.connect(db)
+        cur = conn.execute("SELECT MAX(snapshot_ts) FROM option_chain_snapshots")
+        latest_ts = cur.fetchone()[0]
+        if not latest_ts:
+            conn.close()
+            return
+        df = pd.read_sql(
+            "SELECT * FROM option_chain_snapshots WHERE snapshot_ts=? ORDER BY strike_price",
+            conn,
+            params=(latest_ts,)
+        )
+        conn.close()
+        if len(df) > 0:
+            df.to_parquet(pq, index=False, compression="snappy")
+            _log(f"Parquet written: {pq.name}")
+    except Exception as e:
+        _log(f"Parquet failed: {e}", "WARN")
 
 # ── NSE fetch ─────────────────────────────────────────────────────────────────
 def fetch_live(symbol: str, otype: str, expiry: str) -> Optional[dict]:
@@ -273,25 +341,38 @@ def fetch_mock(symbol: str) -> Optional[dict]:
 def fetch_option_chain(symbol: str, otype: str, expiry: str) -> Optional[dict]:
     return fetch_mock(symbol) if st.session_state.get("mock_mode") else fetch_live(symbol, otype, expiry)
 
-def parse_response(raw, symbol, expiry, snapshot_ts, trade_date_str) -> list:
+def parse_response(raw: dict, symbol: str, expiry: str,
+                   snapshot_ts: str, trade_date_str: str) -> list:
     rows = []
     try:
-        data_list = raw.get("filtered", {}).get("data", [])
+        data_list = (
+            raw.get("filtered", {}).get("data")
+            or raw.get("records", {}).get("data")
+            or raw.get("data")
+            or []
+        )
         if not data_list:
-            msg = f"'filtered.data' empty. Keys: {list(raw.keys())}"
+            msg = f"No data rows in response. Top-level keys: {list(raw.keys())}"
             _log(msg, "WARN")
             st.session_state["last_error"] = msg
             return rows
-        first_ce = next((d["CE"] for d in data_list if "CE" in d), {})
-        first_pe = next((d["PE"] for d in data_list if "PE" in d), {})
-        spot = first_ce.get("underlyingValue") or first_pe.get("underlyingValue")
+
+        first_ce = next((d.get("CE") for d in data_list if "CE" in d), {})
+        first_pe = next((d.get("PE") for d in data_list if "PE" in d), {})
+        spot = (
+            first_ce.get("underlyingValue")
+            or first_pe.get("underlyingValue")
+            or raw.get("records", {}).get("underlyingValue", 0)
+            or 0
+        )
         _log(f"  Spot=₹{spot} Strikes={len(data_list)}")
+
         for item in data_list:
             strike = item.get("strikePrice")
             if strike is None:
                 continue
-            ce = item.get("CE", {})
-            pe = item.get("PE", {})
+            ce = item.get("CE") or {}
+            pe = item.get("PE") or {}
             rows.append({
                 "snapshot_ts":      snapshot_ts,
                 "trade_date":       trade_date_str,
@@ -314,7 +395,7 @@ def parse_response(raw, symbol, expiry, snapshot_ts, trade_date_str) -> list:
 
 def collect_snapshot_sync(cfg: dict) -> dict:
     symbol = cfg["symbol"]
-    now    = datetime.now()
+    now    = datetime.now(IST)
     snap_ts    = now.isoformat(timespec="seconds")
     tdate      = now.date()
     result = {"symbol": symbol, "success": False, "rows": 0, "spot": None, "error": None}
@@ -374,7 +455,7 @@ def _bg_scheduler(interval_mins, market_open, market_close, skip_weekend):
 
 _VIEWER_STYLE = '\n:root,[data-theme="light"]{\n  --bg:#f7f6f2;--surface:#f9f8f5;--surface-2:#ffffff;--surface-off:#edeae5;--surface-dyn:#e6e4df;\n  --border:rgba(0,0,0,0.09);--divider:#dcd9d5;\n  --text:#28251d;--muted:#7a7974;--faint:#bab9b4;\n  --primary:#01696f;--primary-h:#0c4e54;--primary-hl:#d4e8e7;\n  --ce:#437a22;--ce-hl:rgba(67,122,34,0.13);\n  --pe:#a12c7b;--pe-hl:rgba(161,44,123,0.12);\n  --warn:#da7101;\n  --r-sm:0.375rem;--r-md:0.5rem;--r-lg:0.75rem;--r-xl:1rem;--r-full:9999px;\n  --sh-sm:0 1px 3px rgba(0,0,0,0.06);--sh-md:0 4px 14px rgba(0,0,0,0.09);\n  --tr:180ms cubic-bezier(0.16,1,0.3,1);\n  --font:\'Satoshi\',\'Inter\',sans-serif;\n  --xs:clamp(0.72rem,0.68rem + 0.2vw,0.8rem);\n  --sm:clamp(0.8rem,0.75rem + 0.25vw,0.875rem);\n  --base:clamp(0.9rem,0.85rem + 0.25vw,1rem);\n  --lg:clamp(1.1rem,1rem + 0.5vw,1.35rem);\n}\n[data-theme="dark"]{\n  --bg:#111110;--surface:#1a1918;--surface-2:#222120;--surface-off:#252422;--surface-dyn:#2e2c2a;\n  --border:rgba(255,255,255,0.07);--divider:#2a2927;\n  --text:#cccac7;--muted:#737270;--faint:#474543;\n  --primary:#4f98a3;--primary-h:#227f8b;--primary-hl:rgba(79,152,163,0.15);\n  --ce:#6daa45;--ce-hl:rgba(109,170,69,0.13);\n  --pe:#d163a7;--pe-hl:rgba(209,99,167,0.12);\n  --warn:#fdab43;\n  --sh-sm:0 1px 4px rgba(0,0,0,0.35);--sh-md:0 4px 18px rgba(0,0,0,0.45);\n}\n*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}\nhtml{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}\nbody{font-family:var(--font);font-size:var(--sm);color:var(--text);background:var(--bg);min-height:100dvh;line-height:1.5}\nbutton{cursor:pointer;background:none;border:none;font:inherit;color:inherit;transition:all var(--tr)}\ntable{border-collapse:collapse;width:100%}\n\n/* ── App shell ── */\n.app{display:flex;flex-direction:column;height:100dvh;overflow:hidden}\n\n/* ── Header ── */\n.hdr{\n  background:var(--surface);border-bottom:1px solid var(--divider);\n  padding:0 1.25rem;height:52px;display:flex;align-items:center;gap:0.875rem;\n  flex-shrink:0;box-shadow:var(--sh-sm);z-index:50;\n}\n.logo{display:flex;align-items:center;gap:0.45rem;font-weight:700;font-size:var(--base);white-space:nowrap}\n.logo-icon{color:var(--primary)}\n.chip{padding:0.18rem 0.55rem;border-radius:var(--r-full);font-size:var(--xs);font-weight:600;white-space:nowrap}\n.chip-sym{background:var(--primary-hl);color:var(--primary);border:1px solid var(--primary)}\n.chip-exp{background:var(--surface-off);color:var(--muted);border:1px solid var(--border)}\n.hdr-right{margin-left:auto;display:flex;align-items:center;gap:0.875rem}\n.spot-block{text-align:right}\n.spot-val{font-size:var(--lg);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}\n.spot-val.up{color:var(--ce)} .spot-val.dn{color:var(--pe)}\n.spot-sub{font-size:var(--xs);color:var(--muted)}\n.spot-chg{font-size:var(--xs);font-weight:600;padding:0.18rem 0.45rem;border-radius:var(--r-sm)}\n.spot-chg.up{background:var(--ce-hl);color:var(--ce)} .spot-chg.dn{background:var(--pe-hl);color:var(--pe)}\n.icon-btn{padding:0.4rem;border-radius:var(--r-md);color:var(--muted);display:flex;align-items:center;justify-content:center}\n.icon-btn:hover{background:var(--surface-off);color:var(--text)}\n\n/* ── Controls bar ── */\n.ctrl-bar{\n  background:var(--surface);border-bottom:1px solid var(--divider);\n  padding:0 1.25rem;height:46px;display:flex;align-items:center;gap:1rem;flex-shrink:0;\n}\n.day-tabs{display:flex;gap:0.2rem;background:var(--surface-off);padding:0.18rem;border-radius:var(--r-md)}\n.day-tab{padding:0.25rem 0.75rem;border-radius:calc(var(--r-md) - 0.1rem);font-size:var(--xs);font-weight:600;color:var(--muted);transition:all var(--tr)}\n.day-tab.active{background:var(--surface-2);color:var(--text);box-shadow:var(--sh-sm)}\n.day-tab:hover:not(.active){color:var(--text)}\n.slider-row{display:flex;align-items:center;gap:0.6rem;flex:1;min-width:180px}\n.slider-row label{font-size:var(--xs);color:var(--muted);white-space:nowrap}\n#timeSlider{flex:1;accent-color:var(--primary);height:3px}\n.t-disp{font-size:var(--xs);font-weight:700;font-variant-numeric:tabular-nums;min-width:44px}\n.play-btn{display:flex;align-items:center;gap:0.35rem;padding:0.28rem 0.75rem;\n  border-radius:var(--r-md);background:var(--primary);color:#fff;font-size:var(--xs);font-weight:700;white-space:nowrap}\n.play-btn:hover{background:var(--primary-h)}\n.ctrl-meta{font-size:var(--xs);color:var(--faint);white-space:nowrap}\n\n/* ── Main grid ── */\n.main{display:grid;grid-template-columns:1fr 360px;flex:1;overflow:hidden;min-height:0}\n@media(max-width:960px){.main{grid-template-columns:1fr}}\n\n/* ── Chain section ── */\n.chain-wrap{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--divider)}\n.sec-title{\n  font-size:var(--xs);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);\n  padding:0.5rem 1.25rem;background:var(--surface);border-bottom:1px solid var(--divider);\n  display:flex;align-items:center;gap:0.5rem;flex-shrink:0;\n}\n.legend{display:flex;gap:0.875rem;margin-left:auto}\n.leg-item{display:flex;align-items:center;gap:0.3rem;font-size:var(--xs);color:var(--muted)}\n.leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}\n.chain-scroll{overflow-y:auto;overflow-x:auto;flex:1}\n\n/* ── Chain table ── */\ntable.chain{font-size:var(--xs);table-layout:fixed;min-width:620px}\ntable.chain thead th{\n  position:sticky;top:0;z-index:10;\n  padding:0.4rem 0.6rem;background:var(--surface);border-bottom:2px solid var(--divider);\n  font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-size:0.66rem;\n  white-space:nowrap;\n}\nth.ce{text-align:right;color:var(--ce)} th.pe{text-align:left;color:var(--pe)} th.str{text-align:center}\ntable.chain tbody tr{border-bottom:1px solid var(--divider);transition:background var(--tr)}\ntable.chain tbody tr:hover td{background:var(--surface-dyn) !important}\ntable.chain tbody tr.atm td{background:var(--primary-hl) !important;font-weight:600}\ntd.ce-col{background:var(--ce-hl);text-align:right;padding:0.38rem 0.6rem;vertical-align:middle}\ntd.pe-col{background:var(--pe-hl);text-align:left;padding:0.38rem 0.6rem;vertical-align:middle}\ntd.str-col{text-align:center;padding:0.38rem 0.5rem;background:var(--surface-off);font-weight:700;font-size:var(--xs);white-space:nowrap}\n.atm-tag{font-size:0.58rem;font-weight:700;text-transform:uppercase;color:var(--primary);\n  background:rgba(79,152,163,0.2);border-radius:2px;padding:0 3px;margin-left:3px}\n.price-n{font-weight:600;font-variant-numeric:tabular-nums}\n.iv-n{font-size:0.65rem;color:var(--muted);font-variant-numeric:tabular-nums}\n.oi-cell{display:flex;flex-direction:column;gap:2px}\n.oi-n{font-variant-numeric:tabular-nums;font-size:0.68rem}\n.oi-bar-bg{height:5px;border-radius:2px;background:var(--surface-dyn);overflow:hidden;width:80px}\n.oi-bar-fill{height:100%;border-radius:2px;transition:width 0.2s}\n.ce-bar{background:var(--ce)} .pe-bar{background:var(--pe)}\n.ce-bar-bg{display:flex;justify-content:flex-end}\n.ce-bar-bg .oi-bar-bg{display:flex;justify-content:flex-end}\n\n/* ── Right panel ── */\n.right-panel{display:flex;flex-direction:column;overflow:hidden}\n.panel-scroll{overflow-y:auto;flex:1}\n\n/* Stats */\n.stats-row{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--divider)}\n.stat-cell{padding:0.6rem 0.875rem;border-right:1px solid var(--divider);text-align:center}\n.stat-cell:last-child{border-right:none}\n.stat-lbl{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:0.2rem}\n.stat-v{font-size:var(--base);font-weight:700;font-variant-numeric:tabular-nums}\n.v-ce{color:var(--ce)} .v-pe{color:var(--pe)} .v-n{color:var(--text)}\n\n/* PCR */\n.pcr-box{padding:0.75rem 1.1rem;border-bottom:1px solid var(--divider)}\n.pcr-hdr{display:flex;justify-content:space-between;font-size:0.65rem;color:var(--muted);margin-bottom:0.4rem}\n.pcr-track{height:8px;border-radius:4px;background:var(--surface-off);overflow:hidden;display:flex}\n.pcr-ce{height:100%;background:var(--ce);transition:width var(--tr)}\n.pcr-pe{height:100%;background:var(--pe);transition:width var(--tr)}\n.pcr-val{font-size:var(--xs);font-weight:700;text-align:center;margin-top:0.35rem}\n\n/* Charts */\n.chart-box{padding:0.875rem 1.1rem;border-bottom:1px solid var(--divider)}\n.chart-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem}\n.chart-title{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted)}\n.chart-sub{font-size:0.62rem;color:var(--faint);font-weight:400}\ncanvas{max-height:145px !important}\n\n/* Integration box */\n.int-box{padding:0.875rem 1.1rem;background:var(--surface-off);border-top:1px solid var(--divider)}\n.int-box p{font-size:var(--xs);color:var(--muted);line-height:1.65}\n.int-box strong{color:var(--primary)}\ncode{font-family:monospace;background:var(--surface);border:1px solid var(--border);\n  border-radius:var(--r-sm);padding:0.08rem 0.32rem;font-size:0.7rem}\n\n::-webkit-scrollbar{width:5px;height:5px}\n::-webkit-scrollbar-track{background:transparent}\n::-webkit-scrollbar-thumb{background:var(--divider);border-radius:3px}\n'
 _VIEWER_BODY  = '<div class="app">\n\n<!-- ── Header ── -->\n<header class="hdr">\n  <div class="logo">\n    <svg class="logo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">\n      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>\n    </svg>\n    Option Chain\n  </div>\n  <span class="chip chip-sym">ANGELONE</span>\n  <span class="chip chip-exp">Expiry: 28-Apr-2026</span>\n  <div class="hdr-right">\n    <div class="spot-block">\n      <div class="spot-val" id="spotVal">—</div>\n      <div class="spot-sub" id="lastTs">—</div>\n    </div>\n    <span class="spot-chg" id="spotChg">—</span>\n    <button class="icon-btn" data-theme-toggle title="Toggle theme">\n      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">\n        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>\n      </svg>\n    </button>\n  </div>\n</header>\n\n<!-- ── Controls ── -->\n<div class="ctrl-bar">\n  <div class="day-tabs">\n    <button class="day-tab active" data-day="0">17 Apr 2026</button>\n    <button class="day-tab" data-day="1">22 Apr 2026</button>\n  </div>\n  <div class="slider-row">\n    <label>Time</label>\n    <input type="range" id="timeSlider" min="0" max="74" value="0" step="1">\n    <span class="t-disp" id="tDisp">09:15</span>\n  </div>\n  <button class="play-btn" id="playBtn">\n    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>\n    Play\n  </button>\n  <span class="ctrl-meta">152 snapshots · 5-min · 2 days</span>\n</div>\n\n<!-- ── Main ── -->\n<div class="main">\n\n  <!-- Chain table -->\n  <div class="chain-wrap">\n    <div class="sec-title">\n      Option Chain\n      <div class="legend">\n        <span class="leg-item"><span class="leg-dot" style="background:var(--ce)"></span>CE (Call)</span>\n        <span class="leg-item"><span class="leg-dot" style="background:var(--pe)"></span>PE (Put)</span>\n        <span class="leg-item"><span class="leg-dot" style="background:var(--primary)"></span>ATM</span>\n      </div>\n    </div>\n    <div class="chain-scroll">\n      <table class="chain">\n        <thead>\n          <tr>\n            <th class="ce" style="width:20%">OI</th>\n            <th class="ce" style="width:9%">IV</th>\n            <th class="ce" style="width:11%">Price</th>\n            <th class="str" style="width:14%">Strike</th>\n            <th class="pe" style="width:11%">Price</th>\n            <th class="pe" style="width:9%">IV</th>\n            <th class="pe" style="width:20%">OI</th>\n          </tr>\n        </thead>\n        <tbody id="chainBody"></tbody>\n      </table>\n    </div>\n  </div>\n\n  <!-- Right panel -->\n  <div class="right-panel">\n    <div class="panel-scroll">\n\n      <!-- Stats -->\n      <div class="stats-row">\n        <div class="stat-cell">\n          <div class="stat-lbl">CE OI</div>\n          <div class="stat-v v-ce" id="sCeOi">—</div>\n        </div>\n        <div class="stat-cell">\n          <div class="stat-lbl">PCR</div>\n          <div class="stat-v v-n" id="sPcr">—</div>\n        </div>\n        <div class="stat-cell">\n          <div class="stat-lbl">PE OI</div>\n          <div class="stat-v v-pe" id="sPeOi">—</div>\n        </div>\n      </div>\n\n      <!-- PCR bar -->\n      <div class="pcr-box">\n        <div class="pcr-hdr"><span style="color:var(--ce)">CE OI</span><span>Put-Call Ratio</span><span style="color:var(--pe)">PE OI</span></div>\n        <div class="pcr-track">\n          <div class="pcr-ce" id="pcrCe" style="width:50%"></div>\n          <div class="pcr-pe" id="pcrPe" style="width:50%"></div>\n        </div>\n        <div class="pcr-val" id="pcrVal">PCR: —</div>\n      </div>\n\n      <!-- Price chart -->\n      <div class="chart-box">\n        <div class="chart-hdr">\n          <span class="chart-title">Spot Price</span>\n          <span class="chart-sub">ANGELONE underlying</span>\n        </div>\n        <canvas id="priceChart"></canvas>\n      </div>\n\n      <!-- OI chart -->\n      <div class="chart-box">\n        <div class="chart-hdr">\n          <span class="chart-title">OI by Strike</span>\n          <span class="chart-sub">ATM ± 3 strikes</span>\n        </div>\n        <canvas id="oiChart"></canvas>\n      </div>\n\n      <!-- IV smile -->\n      <div class="chart-box">\n        <div class="chart-hdr">\n          <span class="chart-title">IV Smile</span>\n          <span class="chart-sub">Implied Volatility curve</span>\n        </div>\n        <canvas id="ivChart"></canvas>\n      </div>\n\n      <!-- Integration note -->\n      <div class="int-box">\n        <p><strong>🔌 Flask Integration:</strong> Replace <code>SAMPLE_DATA</code> with\n        <code>fetch(\'/api/snapshots?symbol=ANGELONE&amp;date=...\')</code> from your\n        <code>app.py</code>. Your scheduler writes to SQLite → Flask serves JSON →\n        this UI reads it live. No breaking changes to existing logic.</p>\n      </div>\n\n    </div>\n  </div>\n</div>\n</div>'
-_VIEWER_LOGIC = '\n\nlet daySnaps = [[], []], curDay = 0, curIdx = 0, playing = false, timer = null;\nlet pChart, oChart, iChart;\n\nfunction init() {\n  daySnaps[0] = SAMPLE_DATA.filter(s => s.timestamp.startsWith("17-Apr-2026"));\n  daySnaps[1] = SAMPLE_DATA.filter(s => s.timestamp.startsWith("22-Apr-2026"));\n  initCharts();\n  setDay(0);\n}\n\n/* ── Formatters ── */\nconst fN = n => n >= 1e5 ? (n/1e5).toFixed(1)+"L" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(n);\nconst fP = n => n == null ? "—" : n.toFixed(2);\nconst fI = n => n == null ? "—" : n.toFixed(1)+"%";\n\n/* ── Render header ── */\nfunction renderHeader(snap) {\n  const spot = snap.underlyingValue;\n  const first = daySnaps[curDay][0].underlyingValue;\n  const chg = spot - first, pct = (chg/first*100).toFixed(2), up = chg >= 0;\n  document.getElementById("spotVal").textContent = "₹" + spot.toFixed(2);\n  document.getElementById("spotVal").className = "spot-val " + (up ? "up" : "dn");\n  document.getElementById("lastTs").textContent = snap.timestamp;\n  const chgEl = document.getElementById("spotChg");\n  chgEl.textContent = (up?"+":"") + chg.toFixed(2) + " (" + (up?"+":"") + pct + "%)";\n  chgEl.className = "spot-chg " + (up ? "up" : "dn");\n}\n\n/* ── Render chain table ── */\nfunction renderChain(snap) {\n  const spot = snap.underlyingValue;\n  const atm = snap.data.reduce((b, r) => Math.abs(r.strikePrice - spot) < Math.abs(b - spot) ? r.strikePrice : b, snap.data[0].strikePrice);\n  const maxOI = Math.max(...snap.data.flatMap(r => [r.CE?.openInterest||0, r.PE?.openInterest||0]), 1);\n\n  document.getElementById("chainBody").innerHTML = snap.data.map(row => {\n    const K = row.strikePrice, ce = row.CE, pe = row.PE;\n    const isAtm = K === atm;\n    const cePct = Math.round((ce?.openInterest||0) / maxOI * 100);\n    const pePct = Math.round((pe?.openInterest||0) / maxOI * 100);\n    const itmCe = K < spot, itmPe = K > spot;\n    return `<tr class="${isAtm ? \'atm\' : \'\'}">\n      <td class="ce-col">\n        <div class="oi-cell" style="align-items:flex-end">\n          <span class="oi-n">${fN(ce?.openInterest||0)}</span>\n          <div class="oi-bar-bg" style="display:flex;justify-content:flex-end">\n            <div class="oi-bar-fill ce-bar" style="width:${cePct}%"></div>\n          </div>\n        </div>\n      </td>\n      <td class="ce-col"><span class="iv-n">${fI(ce?.impliedVolatility)}</span></td>\n      <td class="ce-col"><span class="price-n" style="color:${itmCe?\'var(--ce)\':\'inherit\'}">${fP(ce?.lastPrice)}</span></td>\n      <td class="str-col">${K}${isAtm ? \'<span class="atm-tag">ATM</span>\' : \'\'}</td>\n      <td class="pe-col"><span class="price-n" style="color:${itmPe?\'var(--pe)\':\'inherit\'}">${fP(pe?.lastPrice)}</span></td>\n      <td class="pe-col"><span class="iv-n">${fI(pe?.impliedVolatility)}</span></td>\n      <td class="pe-col">\n        <div class="oi-cell">\n          <span class="oi-n">${fN(pe?.openInterest||0)}</span>\n          <div class="oi-bar-bg">\n            <div class="oi-bar-fill pe-bar" style="width:${pePct}%"></div>\n          </div>\n        </div>\n      </td>\n    </tr>`;\n  }).join("");\n\n  const atmRow = document.querySelector("tr.atm");\n  if (atmRow) atmRow.scrollIntoView({block:"nearest",behavior:"smooth"});\n}\n\n/* ── Render stats ── */\nfunction renderStats(snap) {\n  const ceOI = snap.data.reduce((s,r) => s+(r.CE?.openInterest||0), 0);\n  const peOI = snap.data.reduce((s,r) => s+(r.PE?.openInterest||0), 0);\n  const pcr = ceOI > 0 ? (peOI/ceOI).toFixed(2) : "—";\n  document.getElementById("sCeOi").textContent = fN(ceOI);\n  document.getElementById("sPeOi").textContent = fN(peOI);\n  document.getElementById("sPcr").textContent = pcr;\n  document.getElementById("pcrVal").textContent = "PCR: " + pcr;\n  const tot = ceOI + peOI || 1;\n  document.getElementById("pcrCe").style.width = (ceOI/tot*100)+"%";\n  document.getElementById("pcrPe").style.width = (peOI/tot*100)+"%";\n}\n\n/* ── Charts ── */\nfunction gridColor() { return getComputedStyle(document.documentElement).getPropertyValue(\'--divider\').trim(); }\nfunction tickColor() { return getComputedStyle(document.documentElement).getPropertyValue(\'--muted\').trim(); }\n\nfunction initCharts() {\n  const baseOpts = (yFmt, xFmt) => ({\n    responsive: true, maintainAspectRatio: true,\n    plugins: { legend: { display: false } },\n    scales: {\n      x: { ticks: { maxTicksLimit: 6, color: tickColor(), font:{size:9}, callback: xFmt||undefined }, grid: { color: gridColor() } },\n      y: { ticks: { color: tickColor(), font:{size:9}, callback: yFmt||undefined }, grid: { color: gridColor() } }\n    }\n  });\n\n  pChart = new Chart(document.getElementById("priceChart").getContext("2d"), {\n    type: "line",\n    data: { labels:[], datasets:[\n      { data:[], borderColor:"var(--primary)", backgroundColor:"transparent", borderWidth:1.5, pointRadius:0, tension:0.3 },\n      { data:[], borderColor:"var(--warn)", backgroundColor:"transparent", borderWidth:0, pointRadius:5, pointBackgroundColor:"var(--warn)", showLine:false }\n    ]},\n    options: { ...baseOpts(v => "₹"+v.toFixed(0)), plugins:{ legend:{display:false},\n      tooltip:{ callbacks:{ label: c => "₹"+Number(c.raw).toFixed(2) } } } }\n  });\n\n  oChart = new Chart(document.getElementById("oiChart").getContext("2d"), {\n    type: "bar",\n    data: { labels:[], datasets:[\n      { label:"CE OI", data:[], backgroundColor:"rgba(67,122,34,0.72)", borderRadius:3, borderSkipped:false },\n      { label:"PE OI", data:[], backgroundColor:"rgba(161,44,123,0.72)", borderRadius:3, borderSkipped:false }\n    ]},\n    options: { ...baseOpts(v => fN(v)), plugins:{ legend:{ display:true, position:"bottom",\n      labels:{ color:tickColor(), font:{size:9}, boxWidth:9, padding:6 } } } }\n  });\n\n  iChart = new Chart(document.getElementById("ivChart").getContext("2d"), {\n    type: "line",\n    data: { labels:[], datasets:[\n      { label:"CE IV", data:[], borderColor:"rgba(67,122,34,0.85)", backgroundColor:"rgba(67,122,34,0.08)", borderWidth:1.5, pointRadius:2, tension:0.4, fill:true },\n      { label:"PE IV", data:[], borderColor:"rgba(161,44,123,0.85)", backgroundColor:"rgba(161,44,123,0.07)", borderWidth:1.5, pointRadius:2, tension:0.4, fill:true }\n    ]},\n    options: { ...baseOpts(v => v+"%"), plugins:{ legend:{ display:true, position:"bottom",\n      labels:{ color:tickColor(), font:{size:9}, boxWidth:9, padding:6 } } } }\n  });\n}\n\nfunction updatePriceChart(snaps, i) {\n  pChart.data.labels = snaps.map(s => s.timestamp.slice(12,17));\n  pChart.data.datasets[0].data = snaps.map(s => s.underlyingValue);\n  pChart.data.datasets[1].data = snaps.map((s,j) => j===i ? s.underlyingValue : null);\n  pChart.update("none");\n}\n\nfunction updateOIChart(snap) {\n  const spot = snap.underlyingValue;\n  let ai = snap.data.reduce((bi,r,i) => Math.abs(r.strikePrice-spot) < Math.abs(snap.data[bi].strikePrice-spot) ? i : bi, 0);\n  const lo = Math.max(0,ai-3), hi = Math.min(snap.data.length-1,ai+3);\n  const rows = snap.data.slice(lo, hi+1);\n  oChart.data.labels = rows.map(r => r.strikePrice);\n  oChart.data.datasets[0].data = rows.map(r => r.CE?.openInterest||0);\n  oChart.data.datasets[1].data = rows.map(r => r.PE?.openInterest||0);\n  oChart.update("none");\n}\n\nfunction updateIVChart(snap) {\n  iChart.data.labels = snap.data.map(r => r.strikePrice);\n  iChart.data.datasets[0].data = snap.data.map(r => r.CE?.impliedVolatility||0);\n  iChart.data.datasets[1].data = snap.data.map(r => r.PE?.impliedVolatility||0);\n  iChart.update("none");\n}\n\n/* ── Render all ── */\nfunction renderAll() {\n  const snaps = daySnaps[curDay];\n  const snap = snaps[curIdx];\n  if (!snap) return;\n  renderHeader(snap);\n  renderChain(snap);\n  renderStats(snap);\n  updatePriceChart(snaps, curIdx);\n  updateOIChart(snap);\n  updateIVChart(snap);\n  document.getElementById("tDisp").textContent = snap.timestamp.slice(12,17);\n}\n\n/* ── Controls ── */\nfunction setDay(d) {\n  curDay = d; curIdx = 0;\n  const slider = document.getElementById("timeSlider");\n  slider.max = daySnaps[d].length - 1;\n  slider.value = 0;\n  document.querySelectorAll(".day-tab").forEach((b,i) => b.classList.toggle("active", i===d));\n  renderAll();\n}\n\ndocument.querySelectorAll(".day-tab").forEach(b => b.addEventListener("click", () => setDay(+b.dataset.day)));\n\ndocument.getElementById("timeSlider").addEventListener("input", function() {\n  curIdx = +this.value; renderAll();\n});\n\ndocument.getElementById("playBtn").addEventListener("click", function() {\n  if (playing) {\n    clearInterval(timer); playing = false;\n    this.innerHTML = \'<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play\';\n  } else {\n    playing = true;\n    this.innerHTML = \'<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause\';\n    const slider = document.getElementById("timeSlider");\n    timer = setInterval(() => {\n      if (curIdx >= daySnaps[curDay].length - 1) {\n        clearInterval(timer); playing = false;\n        document.getElementById("playBtn").innerHTML = \'<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play\';\n        return;\n      }\n      curIdx++; slider.value = curIdx; renderAll();\n    }, 180);\n  }\n});\n\n/* ── Theme toggle ── */\n(function(){\n  const btn = document.querySelector("[data-theme-toggle]");\n  const html = document.documentElement;\n  btn.addEventListener("click", () => {\n    const dark = html.getAttribute("data-theme") === "dark";\n    html.setAttribute("data-theme", dark ? "light" : "dark");\n    btn.innerHTML = dark\n      ? \'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>\'\n      : \'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>\';\n    setTimeout(() => { pChart.update(); oChart.update(); iChart.update(); }, 60);\n  });\n})();\n\ninit();\n'
+_VIEWER_LOGIC = '\n\nlet daySnaps = [[], []], curDay = 0, curIdx = 0, playing = false, timer = null;\nlet pChart, oChart, iChart;\n\nfunction init() {\n  daySnaps[0] = SAMPLE_DATA.filter(s => s.timestamp.startsWith("17-Apr-2026"));\n  daySnaps[1] = SAMPLE_DATA.filter(s => s.timestamp.startsWith("22-Apr-2026"));\n  initCharts();\n  setDay(0);\n}\n\nfunction getTimeLabel(ts) {\n  if (!ts) return "—";\n  if (ts.includes("T")) {\n    return ts.split("T")[1].slice(0, 5);\n  }\n  const parts = ts.split(" ");\n  return parts.length > 1 ? parts[1].slice(0, 5) : ts;\n}\n\n/* ── Formatters ── */\nconst fN = n => n >= 1e5 ? (n/1e5).toFixed(1)+"L" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : String(n);\nconst fP = n => n == null ? "—" : n.toFixed(2);\nconst fI = n => n == null ? "—" : n.toFixed(1)+"%";\n\n/* ── Render header ── */\nfunction renderHeader(snap) {\n  const spot = snap.underlyingValue;\n  const first = daySnaps[curDay][0].underlyingValue;\n  const chg = spot - first, pct = (chg/first*100).toFixed(2), up = chg >= 0;\n  document.getElementById("spotVal").textContent = "₹" + spot.toFixed(2);\n  document.getElementById("spotVal").className = "spot-val " + (up ? "up" : "dn");\n  document.getElementById("lastTs").textContent = snap.timestamp.replace("T", " ");\n  const chgEl = document.getElementById("spotChg");\n  chgEl.textContent = (up?"+":"") + chg.toFixed(2) + " (" + (up?"+":"") + pct + "%)";\n  chgEl.className = "spot-chg " + (up ? "up" : "dn");\n}\n\n/* ── Render chain table ── */\nfunction renderChain(snap) {\n  const spot = snap.underlyingValue;\n  const atm = snap.data.reduce((b, r) => Math.abs(r.strikePrice - spot) < Math.abs(b - spot) ? r.strikePrice : b, snap.data[0].strikePrice);\n  const maxOI = Math.max(...snap.data.flatMap(r => [r.CE?.openInterest||0, r.PE?.openInterest||0]), 1);\n\n  document.getElementById("chainBody").innerHTML = snap.data.map(row => {\n    const K = row.strikePrice, ce = row.CE, pe = row.PE;\n    const isAtm = K === atm;\n    const cePct = Math.round((ce?.openInterest||0) / maxOI * 100);\n    const pePct = Math.round((pe?.openInterest||0) / maxOI * 100);\n    const itmCe = K < spot, itmPe = K > spot;\n    return `<tr class="${isAtm ? \'atm\' : \'\'}">\n      <td class="ce-col">\n        <div class="oi-cell" style="align-items:flex-end">\n          <span class="oi-n">${fN(ce?.openInterest||0)}</span>\n          <div class="oi-bar-bg" style="display:flex;justify-content:flex-end">\n            <div class="oi-bar-fill ce-bar" style="width:${cePct}%"></div>\n          </div>\n        </div>\n      </td>\n      <td class="ce-col"><span class="iv-n">${fI(ce?.impliedVolatility)}</span></td>\n      <td class="ce-col"><span class="price-n" style="color:${itmCe?\'var(--ce)\':\'inherit\'}">${fP(ce?.lastPrice)}</span></td>\n      <td class="str-col">${K}${isAtm ? \'<span class="atm-tag">ATM</span>\' : \'\'}</td>\n      <td class="pe-col"><span class="price-n" style="color:${itmPe?\'var(--pe)\':\'inherit\'}">${fP(pe?.lastPrice)}</span></td>\n      <td class="pe-col"><span class="iv-n">${fI(pe?.impliedVolatility)}</span></td>\n      <td class="pe-col">\n        <div class="oi-cell">\n          <span class="oi-n">${fN(pe?.openInterest||0)}</span>\n          <div class="oi-bar-bg">\n            <div class="oi-bar-fill pe-bar" style="width:${pePct}%"></div>\n          </div>\n        </div>\n      </td>\n    </tr>`;\n  }).join("");\n\n  const atmRow = document.querySelector("tr.atm");\n  if (atmRow) atmRow.scrollIntoView({block:"nearest",behavior:"smooth"});\n}\n\n/* ── Render stats ── */\nfunction renderStats(snap) {\n  const ceOI = snap.data.reduce((s,r) => s+(r.CE?.openInterest||0), 0);\n  const peOI = snap.data.reduce((s,r) => s+(r.PE?.openInterest||0), 0);\n  const pcr = ceOI > 0 ? (peOI/ceOI).toFixed(2) : "—";\n  document.getElementById("sCeOi").textContent = fN(ceOI);\n  document.getElementById("sPeOi").textContent = fN(peOI);\n  document.getElementById("sPcr").textContent = pcr;\n  document.getElementById("pcrVal").textContent = "PCR: " + pcr;\n  const tot = ceOI + peOI || 1;\n  document.getElementById("pcrCe").style.width = (ceOI/tot*100)+"%";\n  document.getElementById("pcrPe").style.width = (peOI/tot*100)+"%";\n}\n\n/* ── Charts ── */\nfunction gridColor() { return getComputedStyle(document.documentElement).getPropertyValue(\'--divider\').trim(); }\nfunction tickColor() { return getComputedStyle(document.documentElement).getPropertyValue(\'--muted\').trim(); }\n\nfunction initCharts() {\n  const baseOpts = (yFmt, xFmt) => ({\n    responsive: true, maintainAspectRatio: true,\n    plugins: { legend: { display: false } },\n    scales: {\n      x: { ticks: { maxTicksLimit: 6, color: tickColor(), font:{size:9}, callback: xFmt||undefined }, grid: { color: gridColor() } },\n      y: { ticks: { color: tickColor(), font:{size:9}, callback: yFmt||undefined }, grid: { color: gridColor() } }\n    }\n  });\n\n  pChart = new Chart(document.getElementById("priceChart").getContext("2d"), {\n    type: "line",\n    data: { labels:[], datasets:[\n      { data:[], borderColor:"var(--primary)", backgroundColor:"transparent", borderWidth:1.5, pointRadius:0, tension:0.3 },\n      { data:[], borderColor:"var(--warn)", backgroundColor:"transparent", borderWidth:0, pointRadius:5, pointBackgroundColor:"var(--warn)", showLine:false }\n    ]},\n    options: { ...baseOpts(v => "₹"+v.toFixed(0)), plugins:{ legend:{display:false},\n      tooltip:{ callbacks:{ label: c => "₹"+Number(c.raw).toFixed(2) } } } }\n  });\n\n  oChart = new Chart(document.getElementById("oiChart").getContext("2d"), {\n    type: "bar",\n    data: { labels:[], datasets:[\n      { label:"CE OI", data:[], backgroundColor:"rgba(67,122,34,0.72)", borderRadius:3, borderSkipped:false },\n      { label:"PE OI", data:[], backgroundColor:"rgba(161,44,123,0.72)", borderRadius:3, borderSkipped:false }\n    ]},\n    options: { ...baseOpts(v => fN(v)), plugins:{ legend:{ display:true, position:"bottom",\n      labels:{ color:tickColor(), font:{size:9}, boxWidth:9, padding:6 } } } }\n  });\n\n  iChart = new Chart(document.getElementById("ivChart").getContext("2d"), {\n    type: "line",\n    data: { labels:[], datasets:[\n      { label:"CE IV", data:[], borderColor:"rgba(67,122,34,0.85)", backgroundColor:"rgba(67,122,34,0.08)", borderWidth:1.5, pointRadius:2, tension:0.4, fill:true },\n      { label:"PE IV", data:[], borderColor:"rgba(161,44,123,0.85)", backgroundColor:"rgba(161,44,123,0.07)", borderWidth:1.5, pointRadius:2, tension:0.4, fill:true }\n    ]},\n    options: { ...baseOpts(v => v+"%"), plugins:{ legend:{ display:true, position:"bottom",\n      labels:{ color:tickColor(), font:{size:9}, boxWidth:9, padding:6 } } } }\n  });\n}\n\nfunction updatePriceChart(snaps, i) {\n  pChart.data.labels = snaps.map(s => getTimeLabel(s.timestamp));\n  pChart.data.datasets[0].data = snaps.map(s => s.underlyingValue);\n  pChart.data.datasets[1].data = snaps.map((s,j) => j===i ? s.underlyingValue : null);\n  pChart.update("none");\n}\n\nfunction updateOIChart(snap) {\n  const spot = snap.underlyingValue;\n  let ai = snap.data.reduce((bi,r,i) => Math.abs(r.strikePrice-spot) < Math.abs(snap.data[bi].strikePrice-spot) ? i : bi, 0);\n  const lo = Math.max(0,ai-3), hi = Math.min(snap.data.length-1,ai+3);\n  const rows = snap.data.slice(lo, hi+1);\n  oChart.data.labels = rows.map(r => r.strikePrice);\n  oChart.data.datasets[0].data = rows.map(r => r.CE?.openInterest||0);\n  oChart.data.datasets[1].data = rows.map(r => r.PE?.openInterest||0);\n  oChart.update("none");\n}\n\nfunction updateIVChart(snap) {\n  iChart.data.labels = snap.data.map(r => r.strikePrice);\n  iChart.data.datasets[0].data = snap.data.map(r => r.CE?.impliedVolatility||0);\n  iChart.data.datasets[1].data = snap.data.map(r => r.PE?.impliedVolatility||0);\n  iChart.update("none");\n}\n\n/* ── Render all ── */\nfunction renderAll() {\n  const snaps = daySnaps[curDay];\n  const snap = snaps[curIdx];\n  if (!snap) return;\n  renderHeader(snap);\n  renderChain(snap);\n  renderStats(snap);\n  updatePriceChart(snaps, curIdx);\n  updateOIChart(snap);\n  updateIVChart(snap);\n  document.getElementById("tDisp").textContent = getTimeLabel(snap.timestamp);\n}\n\n/* ── Controls ── */\nfunction setDay(d) {\n  curDay = d; curIdx = 0;\n  const slider = document.getElementById("timeSlider");\n  slider.max = daySnaps[d].length - 1;\n  slider.value = 0;\n  document.querySelectorAll(".day-tab").forEach((b,i) => b.classList.toggle("active", i===d));\n  renderAll();\n}\n\ndocument.querySelectorAll(".day-tab").forEach(b => b.addEventListener("click", () => setDay(+b.dataset.day)));\n\ndocument.getElementById("timeSlider").addEventListener("input", function() {\n  curIdx = +this.value; renderAll();\n});\n\ndocument.getElementById("playBtn").addEventListener("click", function() {\n  if (playing) {\n    clearInterval(timer); playing = false;\n    this.innerHTML = \'<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play\';\n  } else {\n    playing = true;\n    this.innerHTML = \'<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause\';\n    const slider = document.getElementById("timeSlider");\n    timer = setInterval(() => {\n      if (curIdx >= daySnaps[curDay].length - 1) {\n        clearInterval(timer); playing = false;\n        document.getElementById("playBtn").innerHTML = \'<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play\';\n        return;\n      }\n      curIdx++; slider.value = curIdx; renderAll();\n    }, 180);\n  }\n});\n\n/* ── Theme toggle ── */\n(function(){\n  const btn = document.querySelector("[data-theme-toggle]");\n  const html = document.documentElement;\n  btn.addEventListener("click", () => {\n    const dark = html.getAttribute("data-theme") === "dark";\n    html.setAttribute("data-theme", dark ? "light" : "dark");\n    btn.innerHTML = dark\n      ? \'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>\'\n      : \'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>\';\n    setTimeout(() => { pChart.update(); oChart.update(); iChart.update(); }, 60);\n  });\n})();\n\ninit();\n'
 
 
 def load_viewer_snapshots(symbol: str, trade_date: date) -> list:
@@ -473,7 +554,10 @@ def build_option_chain_viewer_html(snapshots: list, sym: str, expiry: str) -> st
     day_map: dict = OrderedDict()
     for s in snapshots:
         ts = s["timestamp"]
-        date_part = ts[:11].strip()
+        if "T" in ts:
+            date_part = ts.split("T")[0]
+        else:
+            date_part = ts.split(" ")[0]
         if date_part not in day_map:
             day_map[date_part] = []
         day_map[date_part].append(s)
@@ -799,7 +883,10 @@ with tab_today:
         if df_day.empty:
             st.warning(f"No data for {sel_t} today.")
         else:
-            df_day["snapshot_ts"] = pd.to_datetime(df_day["snapshot_ts"])
+            if st.session_state.get("last_parquet_warning"):
+                st.warning(st.session_state["last_parquet_warning"])
+                st.session_state["last_parquet_warning"] = None
+            df_day["snapshot_ts"] = normalize_snapshot_ts(df_day["snapshot_ts"])
             st.caption(f"{df_day['snapshot_ts'].nunique()} snapshots, {len(df_day):,} rows")
 
             st.markdown("#### PCR over time")
@@ -807,11 +894,189 @@ with tab_today:
             if not pcr_df.empty:
                 st.line_chart(pcr_df.set_index("snapshot_ts")["PCR"], height=220)
 
+            st.markdown("#### 📊 All CE & PE Prices vs Time (All Snapshots & Strikes)")
+            st.caption("Comprehensive view: All captured option prices throughout the day")
+            all_prices_df = load_all_ce_pe_prices(sel_t)
+            if all_prices_df.empty:
+                st.info("No price data available in database.")
+            else:
+                # snapshot_ts is already IST-aware from load_all_ce_pe_prices (like OI chart)
+                
+                # Get unique strikes for selector
+                available_strikes = sorted(all_prices_df["strike_price"].unique())
+                last_spot = float(all_prices_df["underlying_value"].iloc[-1])
+                default_strike = min(available_strikes, key=lambda x: abs(x - last_spot))
+                
+                # Strike selector
+                col1, col2 = st.columns([2, 1])
+                selected_strike = col1.select_slider(
+                    "Select Strike Price",
+                    options=available_strikes,
+                    value=default_strike,
+                    key="all_prices_strike_selector"
+                )
+                col2.metric("Current Spot", f"₹{last_spot:.2f}")
+                
+                # Filter data for selected strike
+                strike_prices_df = all_prices_df[all_prices_df["strike_price"] == selected_strike].copy()
+                
+                # Create CE, PE, and Spot price data
+                ce_prices_df = strike_prices_df[["snapshot_ts", "strike_price", "ce_price", "underlying_value"]].copy()
+                ce_prices_df = ce_prices_df.dropna(subset=["ce_price"])
+                ce_prices_df["Type"] = "CE Price"
+                ce_prices_df["Price"] = ce_prices_df["ce_price"]
+                
+                pe_prices_df = strike_prices_df[["snapshot_ts", "strike_price", "pe_price", "underlying_value"]].copy()
+                pe_prices_df = pe_prices_df.dropna(subset=["pe_price"])
+                pe_prices_df["Type"] = "PE Price"
+                pe_prices_df["Price"] = pe_prices_df["pe_price"]
+                
+                spot_prices_df = strike_prices_df[["snapshot_ts", "strike_price", "underlying_value"]].copy()
+                spot_prices_df = spot_prices_df.drop_duplicates(subset=["snapshot_ts"])
+                spot_prices_df["Type"] = "Spot Price"
+                spot_prices_df["Price"] = spot_prices_df["underlying_value"]
+                
+                combined_df = pd.concat([ce_prices_df, pe_prices_df, spot_prices_df], ignore_index=True)
+                
+                if combined_df.empty:
+                    st.warning(f"No price data available for strike ₹{selected_strike:.0f}")
+                else:
+                    # Keep IST timezone-aware timestamps (like OI chart)
+                    # snapshot_ts is already IST-aware from load_all_ce_pe_prices
+                    
+                    # Separate spot and option prices for dual y-axis
+                    spot_chart_data = combined_df[combined_df["Type"] == "Spot Price"].copy()
+                    option_chart_data = combined_df[combined_df["Type"].isin(["CE Price", "PE Price"])].copy()
+                    
+                    # Chart 1: Spot Price on Primary Y-axis (Left)
+                    spot_chart = alt.Chart(spot_chart_data).mark_line(point=True, size=3).encode(
+                        x=alt.X(
+                            "snapshot_ts:T",
+                            title="Time (IST)",
+                            axis=alt.Axis(format="%H:%M", labelAngle=45)
+                        ),
+                        y=alt.Y(
+                            "Price:Q",
+                            title="Spot Price (₹)",
+                            axis=alt.Axis(titleColor="#1f77b4", labelColor="#1f77b4")
+                        ),
+                        color=alt.value("#1f77b4"),
+                        tooltip=[
+                            alt.Tooltip("snapshot_ts:T", title="Time", format="%H:%M:%S"),
+                            alt.Tooltip("Price:Q", title="Spot Price", format=",.2f"),
+                        ]
+                    )
+                    
+                    # Chart 2: CE & PE Prices on Secondary Y-axis (Right)
+                    option_chart = alt.Chart(option_chart_data).mark_line(point=True, size=2).encode(
+                        x=alt.X(
+                            "snapshot_ts:T",
+                            title="",
+                            axis=alt.Axis(format="%H:%M", labelAngle=45)
+                        ),
+                        y=alt.Y(
+                            "Price:Q",
+                            title="CE/PE Price (₹)",
+                            axis=alt.Axis(titleColor="#d62728", labelColor="#d62728", orient="right")
+                        ),
+                        color=alt.Color(
+                            "Type:N",
+                            scale=alt.Scale(domain=["CE Price", "PE Price"], range=["#d62728", "#2ca02c"]),
+                            title="Option Type"
+                        ),
+                        strokeDash=alt.value([2, 2]),
+                        tooltip=[
+                            alt.Tooltip("snapshot_ts:T", title="Time", format="%H:%M:%S"),
+                            alt.Tooltip("Price:Q", title="Price", format=",.2f"),
+                            alt.Tooltip("Type:N", title="Type"),
+                        ]
+                    )
+                    
+                    # Layer charts with independent y-axes
+                    price_time_chart = alt.layer(spot_chart, option_chart).resolve_scale(
+                        y="independent"
+                    ).properties(
+                        height=400,
+                        width=900,
+                        title=f"Spot Price vs CE & PE Prices (Strike ₹{selected_strike:.0f})"
+                    )
+                    
+                    st.altair_chart(price_time_chart, use_container_width=True)
+                    
+                    # Statistics for selected strike
+                    st.markdown("**Statistics for Selected Strike:**")
+                    col1, col2, col3, col4, col5 = st.columns(5)
+                    
+                    spot_data = spot_prices_df["Price"]
+                    ce_valid = ce_prices_df[ce_prices_df["Price"] > 0]
+                    pe_valid = pe_prices_df[pe_prices_df["Price"] > 0]
+                    
+                    col1.metric("Spot Avg", f"₹{spot_data.mean():.2f}")
+                    col2.metric("CE Price Avg", f"₹{ce_valid['Price'].mean():.2f}" if len(ce_valid) > 0 else "—")
+                    col3.metric("CE Price Max", f"₹{ce_valid['Price'].max():.2f}" if len(ce_valid) > 0 else "—")
+                    col4.metric("PE Price Avg", f"₹{pe_valid['Price'].mean():.2f}" if len(pe_valid) > 0 else "—")
+                    col5.metric("PE Price Max", f"₹{pe_valid['Price'].max():.2f}" if len(pe_valid) > 0 else "—")
+
             st.markdown("#### OI buildup for a Strike")
             strikes = sorted(df_day["strike_price"].unique())
             last_spot = float(df_day.sort_values("snapshot_ts")["underlying_value"].iloc[-1])
             atm_strike = min(strikes, key=lambda x: abs(x - last_spot))
             sel_st = st.select_slider("Strike", options=strikes, value=atm_strike)
+
+            st.markdown("#### 📈 CE & PE Price Trend (by Strike & Time)")
+            price_df = df_day[df_day["strike_price"] == sel_st].sort_values("snapshot_ts").copy()
+            if price_df.empty:
+                st.info(f"No price data available for strike ₹{sel_st:.2f}.")
+            else:
+                price_df["snapshot_ts"] = pd.to_datetime(price_df["snapshot_ts"]).dt.tz_convert(None)
+                price_df = price_df.drop_duplicates(subset=["snapshot_ts"])
+                price_df = price_df[["snapshot_ts", "underlying_value", "ce_price", "pe_price"]].astype({
+                    "underlying_value": float,
+                    "ce_price": float,
+                    "pe_price": float,
+                })
+
+                spot_chart = alt.Chart(price_df).mark_line(point=True, color="#1f77b4").encode(
+                    x=alt.X("snapshot_ts:T", title="Time"),
+                    y=alt.Y("underlying_value:Q", title="Spot Price"),
+                    tooltip=[
+                        alt.Tooltip("snapshot_ts:T", title="Time"),
+                        alt.Tooltip("underlying_value:Q", title="Spot Price"),
+                    ],
+                )
+
+                cepe_df = price_df.melt(
+                    id_vars=["snapshot_ts"],
+                    value_vars=["ce_price", "pe_price"],
+                    var_name="Series",
+                    value_name="Price",
+                )
+                cepe_df["Series"] = cepe_df["Series"].map({"ce_price": "CE Price", "pe_price": "PE Price"})
+
+                cepe_chart = alt.Chart(cepe_df).mark_line(point=True).encode(
+                    x=alt.X("snapshot_ts:T", title="Time"),
+                    y=alt.Y(
+                        "Price:Q",
+                        title="CE/PE Price",
+                        axis=alt.Axis(orient="right"),
+                    ),
+                    color=alt.Color(
+                        "Series:N",
+                        title="Series",
+                        scale=alt.Scale(range=["#d62728", "#2ca02c"]),
+                    ),
+                    tooltip=[
+                        alt.Tooltip("snapshot_ts:T", title="Time"),
+                        alt.Tooltip("Series:N", title="Series"),
+                        alt.Tooltip("Price:Q", title="Price", format=".2f"),
+                    ],
+                )
+
+                chart = alt.layer(spot_chart, cepe_chart).resolve_scale(y="independent").properties(
+                    title=f"Strike ₹{sel_st:.0f} - Spot (Blue) vs CE (Red) & PE (Green) Prices"
+                )
+                st.altair_chart(chart.properties(height=350), use_container_width=True)
+
             oi_df  = load_oi_series(sel_t, sel_st)
             if not oi_df.empty:
                 st.line_chart(oi_df.set_index("snapshot_ts")[["ce_oi","pe_oi"]], height=220)
@@ -862,6 +1127,9 @@ with tab_history:
                 if df_range.empty:
                     st.warning("No data in this range.")
                 else:
+                    if st.session_state.get("last_parquet_warning"):
+                        st.warning(st.session_state["last_parquet_warning"])
+                        st.session_state["last_parquet_warning"] = None
                     st.caption(f"Loaded {len(df_range):,} rows across {df_range['trade_date'].nunique()} trading day(s)")
 
                     st.markdown("#### PCR Trend — closing snapshot per day")

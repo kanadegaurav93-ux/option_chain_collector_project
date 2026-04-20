@@ -520,3 +520,65 @@
 2026-04-20 10:12:36,131 [INFO] Stopping collector with PID 20227 ...
 2026-04-20 10:12:36,132 [INFO] Shutdown signal received — stopping ...
 2026-04-20 10:12:40,987 [INFO] Collector stopped cleanly.
+10:21:31 [INFO] [LIVE] NSE session for ANGELONE ...
+10:21:34 [INFO]   API → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+10:21:34 [INFO]   ✓ JSON received for ANGELONE
+10:21:43 [INFO] [LIVE] NSE session for ANGELONE ...
+10:21:46 [INFO]   API → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+10:21:46 [INFO]   ✓ JSON received for ANGELONE
+10:21:51 [INFO] [LIVE] NSE session for ANGELONE ...
+10:21:54 [INFO]   API → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+10:21:54 [INFO]   ✓ JSON received for ANGELONE
+14:09:09 [INFO] [LIVE] NSE session for ANGELONE ...
+14:09:11 [INFO]   API → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+14:09:11 [INFO]   ✓ JSON received for ANGELONE
+14:09:11 [INFO]   Spot=₹318.3 Strikes=37
+14:09:11 [INFO]   Parsed 37 rows for ANGELONE
+14:09:11 [INFO] Parquet written: ANGELONE_2026-04-20.parquet
+14:09:11 [INFO] ✓ ANGELONE: 37 rows. Spot=₹318.3
+14:09:20 [INFO] [LIVE] NSE session for ANGELONE ...
+14:09:23 [INFO]   API → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+14:09:23 [INFO]   ✓ JSON received for ANGELONE
+14:10:04 [INFO] [LIVE] NSE session for ANGELONE ...
+14:10:06 [INFO]   API → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+14:10:06 [INFO]   ✓ JSON received for ANGELONE
+14:20:31 [INFO] [LIVE] NSE session for ANGELONE ...
+14:20:34 [INFO]   API → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+14:20:35 [INFO]   ✓ JSON received for ANGELONE
+14:25:39 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:25:39 [ERROR] load_day error [ANGELONE 2026-04-19]: name 'normalize_snapshot_ts' is not defined
+14:25:39 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:26:10 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:26:10 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:26:18 [INFO] [LIVE] NSE session for ANGELONE ...
+14:26:20 [INFO]   API → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+14:26:21 [INFO]   ✓ JSON received for ANGELONE
+14:26:21 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:26:21 [ERROR] load_day error [ANGELONE 2026-04-19]: name 'normalize_snapshot_ts' is not defined
+14:26:21 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:26:52 [INFO] [LIVE] NSE session for ANGELONE ...
+14:26:54 [INFO]   API → https://www.nseindia.com/api/option-chain-v3?type=Equity&symbol=ANGELONE&expiry=28-Apr-2026
+14:26:54 [INFO]   ✓ JSON received for ANGELONE
+14:26:54 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:26:54 [ERROR] load_day error [ANGELONE 2026-04-19]: name 'normalize_snapshot_ts' is not defined
+14:26:54 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:27:28 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:27:28 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:28:33 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:28:33 [ERROR] load_day error [ANGELONE 2026-04-19]: name 'normalize_snapshot_ts' is not defined
+14:28:33 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:28:37 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:28:37 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:32:41 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:32:41 [ERROR] load_day error [ANGELONE 2026-04-19]: name 'normalize_snapshot_ts' is not defined
+14:32:41 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:32:58 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:32:58 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:33:19 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:33:19 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:33:19 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:33:19 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:33:22 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:33:22 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:33:22 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
+14:33:22 [ERROR] load_day error [ANGELONE 2026-04-20]: name 'normalize_snapshot_ts' is not defined
